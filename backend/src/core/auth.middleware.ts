@@ -51,6 +51,20 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function optionalAuth(req: Request, res: Response, next: NextFunction) {
+  try {
+    const header = req.header('authorization');
+    const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : null;
+    if (token) {
+      const payload = jwt.verify(token, process.env.JWT_SECRET as string) as jwt.JwtPayload;
+      req.user = await loadUser(payload.sub as string);
+    }
+  } catch {
+    // invalid or expired token: treat the caller as a guest
+  }
+  next();
+}
+
 export function requireRole(...roles: Role[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {

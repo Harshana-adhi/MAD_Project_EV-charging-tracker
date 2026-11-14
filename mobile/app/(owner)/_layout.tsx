@@ -1,24 +1,54 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAppTheme } from '@/lib/theme';
 
 export default function OwnerTabsLayout() {
+  const theme = useAppTheme();
+
   return (
-    <Tabs>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: theme.colors.onSecondaryContainer,
+        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+        tabBarActiveBackgroundColor: theme.colors.secondaryContainer,
+        tabBarStyle: { backgroundColor: theme.colors.surface },
+      }}
+    >
       <Tabs.Screen
         name="dashboard"
-        options={{ title: 'Dashboard', tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="view-dashboard" color={color as string} size={size} /> }}
+        options={{
+          title: 'Dashboard',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="view-dashboard" color={color as string} size={size} />
+          ),
+        }}
       />
       <Tabs.Screen
         name="stations"
-        options={{ title: 'Stations', tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="ev-station" color={color as string} size={size} /> }}
+        options={{
+          title: 'Stations',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="ev-station" color={color as string} size={size} />
+          ),
+        }}
       />
       <Tabs.Screen
         name="earnings"
-        options={{ title: 'Earnings', tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-line" color={color as string} size={size} /> }}
+        options={{
+          title: 'Earnings',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="chart-bar" color={color as string} size={size} />
+          ),
+        }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" color={color as string} size={size} /> }}
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-circle" color={color as string} size={size} />
+          ),
+        }}
       />
     </Tabs>
   );

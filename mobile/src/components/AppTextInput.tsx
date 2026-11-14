@@ -2,15 +2,15 @@ import { StyleSheet, View } from 'react-native';
 import { HelperText, TextInput } from 'react-native-paper';
 import type { TextInputProps } from 'react-native-paper';
 
-type AppTextInputProps = TextInputProps & {
-  errorText?: string;
+type AppTextInputProps = Omit<TextInputProps, 'error'> & {
+  error?: string;
 };
 
-export function AppTextInput({ errorText, ...rest }: AppTextInputProps) {
+export function AppTextInput({ error, ...rest }: AppTextInputProps) {
   return (
     <View style={styles.container}>
-      <TextInput mode="outlined" error={!!errorText} {...rest} />
-      {errorText ? <HelperText type="error">{errorText}</HelperText> : null}
+      <TextInput mode="outlined" error={!!error} {...rest} />
+      {error ? <HelperText type="error">{error}</HelperText> : null}
     </View>
   );
 }

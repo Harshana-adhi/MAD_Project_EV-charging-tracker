@@ -1,5 +1,9 @@
 export function formatCredits(amount: number): string {
-  return `${amount.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} cr`;
+  const formatted = Math.abs(amount).toLocaleString('en-LK', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `LKR ${formatted}`;
 }
 
 export function formatKwh(kwh: number): string {

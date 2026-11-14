@@ -6,7 +6,6 @@ import { Link, router } from 'expo-router';
 import { SegmentedButtons, Text } from 'react-native-paper';
 import { Screen, AppTextInput, AppButton, ErrorView } from '@/components';
 import { useAuth } from '@/features/auth';
-import { errorMessage } from '@/lib/errors';
 
 const schema = z.object({
   email: z.string().trim().toLowerCase().email('Enter a valid email'),
@@ -19,7 +18,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function RegisterScreen() {
   const { signUp } = useAuth();
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<unknown>(null);
   const {
     control,
     handleSubmit,
@@ -35,7 +34,7 @@ export default function RegisterScreen() {
       await signUp(values.email, values.password, values.fullName, values.role);
       router.replace('/');
     } catch (err) {
-      setSubmitError(errorMessage(err));
+      setSubmitError(err);
     }
   }
 
@@ -50,7 +49,7 @@ export default function RegisterScreen() {
             label="Full name"
             value={field.value}
             onChangeText={field.onChange}
-            errorText={errors.fullName?.message}
+            error={errors.fullName?.message}
           />
         )}
       />
@@ -64,7 +63,7 @@ export default function RegisterScreen() {
             keyboardType="email-address"
             value={field.value}
             onChangeText={field.onChange}
-            errorText={errors.email?.message}
+            error={errors.email?.message}
           />
         )}
       />
@@ -77,7 +76,7 @@ export default function RegisterScreen() {
             secureTextEntry
             value={field.value}
             onChangeText={field.onChange}
-            errorText={errors.password?.message}
+            error={errors.password?.message}
           />
         )}
       />
@@ -95,7 +94,7 @@ export default function RegisterScreen() {
           />
         )}
       />
-      {submitError ? <ErrorView message={submitError} /> : null}
+      {submitError ? <ErrorView error={submitError} /> : null}
       <AppButton label="Create account" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
       <Link href="/(auth)/login">Already have an account? Log in</Link>
     </Screen>

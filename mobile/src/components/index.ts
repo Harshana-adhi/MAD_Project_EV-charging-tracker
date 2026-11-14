@@ -10,3 +10,4 @@ export { LoadingView } from './LoadingView';
 export { EmptyState } from './EmptyState';
 export { ErrorView } from './ErrorView';
 export { ConfirmDialog } from './ConfirmDialog';
+export { SnackbarProvider, useSnackbar } from './Snackbar';

@@ -1,44 +1,95 @@
-import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
-import { DarkTheme as NavDarkTheme, DefaultTheme as NavDefaultTheme } from 'expo-router';
+import { MD3DarkTheme, MD3LightTheme, useTheme } from 'react-native-paper';
 
-export const colors = {
-  primary: '#0F766E',
-  available: '#16A34A',
-  busy: '#F59E0B',
-  offline: '#6B7280',
-  error: '#DC2626',
-};
-
-export const spacing = { xs: 4, sm: 8, md: 16, lg: 24 };
+const marker = { available: '#16A34A', busy: '#F59E0B', offline: '#6B7280', me: '#2563EB' };
 
 export const lightTheme = {
   ...MD3LightTheme,
-  colors: { ...MD3LightTheme.colors, primary: colors.primary, error: colors.error },
+  colors: {
+    ...MD3LightTheme.colors,
+    primary: '#15803D',
+    onPrimary: '#FFFFFF',
+    primaryContainer: '#DCFCE7',
+    onPrimaryContainer: '#14532D',
+    secondary: '#0F766E',
+    onSecondary: '#FFFFFF',
+    secondaryContainer: '#CCFBF1',
+    onSecondaryContainer: '#134E4A',
+    tertiary: '#A16207',
+    onTertiary: '#FFFFFF',
+    tertiaryContainer: '#FEF9C3',
+    onTertiaryContainer: '#713F12',
+    background: '#F4FAF5',
+    onBackground: '#17211B',
+    surface: '#FFFFFF',
+    onSurface: '#17211B',
+    surfaceVariant: '#E3EFE6',
+    onSurfaceVariant: '#46574B',
+    outline: '#7A8C7F',
+    outlineVariant: '#CBDCCF',
+    error: '#B91C1C',
+    onError: '#FFFFFF',
+    errorContainer: '#FEE2E2',
+    onErrorContainer: '#7F1D1D',
+    inverseSurface: '#2B3530',
+    inverseOnSurface: '#E9F2EC',
+    inversePrimary: '#86EFAC',
+    status: {
+      available: { text: '#166534', bg: '#DCFCE7' },
+      busy: { text: '#92400E', bg: '#FEF3C7' },
+      offline: { text: '#475569', bg: '#E2E8F0' },
+      pending: { text: '#1E40AF', bg: '#DBEAFE' },
+      approved: { text: '#166534', bg: '#DCFCE7' },
+      rejected: { text: '#991B1B', bg: '#FEE2E2' },
+    },
+    money: { credit: '#15803D', debit: '#B91C1C', neutral: '#46574B' },
+    marker,
+  },
 };
 
-export const darkTheme = {
+export const darkTheme: typeof lightTheme = {
   ...MD3DarkTheme,
-  colors: { ...MD3DarkTheme.colors, primary: colors.primary, error: colors.error },
-};
-
-export const navLightTheme = {
-  ...NavDefaultTheme,
   colors: {
-    ...NavDefaultTheme.colors,
-    primary: colors.primary,
-    background: lightTheme.colors.background,
-    card: lightTheme.colors.elevation.level2,
-    text: lightTheme.colors.onSurface,
+    ...MD3DarkTheme.colors,
+    primary: '#4ADE80',
+    onPrimary: '#052E16',
+    primaryContainer: '#166534',
+    onPrimaryContainer: '#DCFCE7',
+    secondary: '#5EEAD4',
+    onSecondary: '#042F2E',
+    secondaryContainer: '#115E59',
+    onSecondaryContainer: '#CCFBF1',
+    tertiary: '#FACC15',
+    onTertiary: '#422006',
+    tertiaryContainer: '#713F12',
+    onTertiaryContainer: '#FEF9C3',
+    background: '#0D1410',
+    onBackground: '#E2ECE5',
+    surface: '#141D17',
+    onSurface: '#E2ECE5',
+    surfaceVariant: '#24302A',
+    onSurfaceVariant: '#A8BAAD',
+    outline: '#71847A',
+    outlineVariant: '#34443A',
+    error: '#F87171',
+    onError: '#450A0A',
+    errorContainer: '#7F1D1D',
+    onErrorContainer: '#FEE2E2',
+    inverseSurface: '#E2ECE5',
+    inverseOnSurface: '#1F2A23',
+    inversePrimary: '#166534',
+    status: {
+      available: { text: '#86EFAC', bg: '#14532D' },
+      busy: { text: '#FCD34D', bg: '#78350F' },
+      offline: { text: '#CBD5E1', bg: '#334155' },
+      pending: { text: '#93C5FD', bg: '#1E3A8A' },
+      approved: { text: '#86EFAC', bg: '#14532D' },
+      rejected: { text: '#FCA5A5', bg: '#7F1D1D' },
+    },
+    money: { credit: '#4ADE80', debit: '#F87171', neutral: '#A8BAAD' },
+    marker,
   },
 };
 
-export const navDarkTheme = {
-  ...NavDarkTheme,
-  colors: {
-    ...NavDarkTheme.colors,
-    primary: colors.primary,
-    background: darkTheme.colors.background,
-    card: darkTheme.colors.elevation.level2,
-    text: darkTheme.colors.onSurface,
-  },
-};
+export type AppTheme = typeof lightTheme;
+export const useAppTheme = () => useTheme<AppTheme>();
+export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
