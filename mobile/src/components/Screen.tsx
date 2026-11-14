@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { HeaderShownContext } from 'expo-router/react-navigation';
 import { Appbar } from 'react-native-paper';
 import { useAppTheme, spacing } from '@/lib/theme';
 
@@ -15,9 +16,17 @@ type ScreenProps = {
 export function Screen({ children, title, scroll, refreshing, onRefresh }: ScreenProps) {
   const theme = useAppTheme();
   const background = { backgroundColor: theme.colors.background };
+  const navigatorHeaderShown = useContext(HeaderShownContext);
+
+  // The tab or stack header and Appbar.Header already handle the top inset.
+  const edges: Edge[] = navigatorHeaderShown
+    ? ['left', 'right']
+    : title
+      ? ['left', 'right', 'bottom']
+      : ['top', 'left', 'right', 'bottom'];
 
   return (
-    <SafeAreaView style={[styles.safeArea, background]}>
+    <SafeAreaView edges={edges} style={[styles.safeArea, background]}>
       {title ? (
         <Appbar.Header elevated={false} style={{ backgroundColor: theme.colors.surface }}>
           <Appbar.Content title={title} titleStyle={{ color: theme.colors.onSurface }} />
@@ -25,7 +34,7 @@ export function Screen({ children, title, scroll, refreshing, onRefresh }: Scree
       ) : null}
       {scroll ? (
         <ScrollView
-          style={[styles.content, background]}
+          style={[styles.scroll, background]}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             onRefresh ? (
@@ -50,5 +59,6 @@ export function Screen({ children, title, scroll, refreshing, onRefresh }: Scree
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   content: { flex: 1, padding: spacing.lg },
+  scroll: { flex: 1 },
   scrollContent: { padding: spacing.lg },
 });
