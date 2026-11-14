@@ -9,7 +9,7 @@ import { api as walletApi } from '@/features/wallet';
 import { errorMessage } from '@/lib/errors';
 
 const schema = z.object({
-  amount: z.coerce.number().int().min(100).max(50000),
+  amount: z.number().int().min(100).max(50000),
   cardNumber: z.string().min(1, 'Card number is required'),
 });
 

@@ -1,20 +1,22 @@
 import { useColorScheme } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, ThemeProvider } from 'expo-router';
 import { queryClient } from '@/lib/queryClient';
-import { lightTheme, darkTheme } from '@/lib/theme';
+import { lightTheme, darkTheme, navLightTheme, navDarkTheme } from '@/lib/theme';
 import { AuthProvider } from '@/features/auth';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
+  const isDark = colorScheme === 'dark';
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <PaperProvider theme={theme}>
-          <Stack screenOptions={{ headerShown: false }} />
+        <PaperProvider theme={isDark ? darkTheme : lightTheme}>
+          <ThemeProvider value={isDark ? navDarkTheme : navLightTheme}>
+            <Stack screenOptions={{ headerShown: false }} />
+          </ThemeProvider>
         </PaperProvider>
       </AuthProvider>
     </QueryClientProvider>

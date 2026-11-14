@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import * as SecureStore from 'expo-secure-store';
 import { setAuthToken, setUnauthorizedHandler } from '@/lib/api';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
+import { getToken, setToken as persistToken, clearToken } from '@/lib/tokenStorage';
+import { USE_MOCKS } from '@/lib/config';
 import type { Role, User } from '@/types/domain';
-import { api } from './index';
+import * as real from './api';
+import * as mock from './api.mock';
 
-const TOKEN_KEY = 'evct_token';
+const api = USE_MOCKS ? mock : real;
 
 type AuthState = {
   user: User | null;
@@ -26,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function applySession(nextToken: string, nextUser: User) {
     setAuthToken(nextToken);
-    await SecureStore.setItemAsync(TOKEN_KEY, nextToken);
+    await persistToken(nextToken);
     setToken(nextToken);
     setUser(nextUser);
     connectSocket(nextToken);
@@ -34,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function clearSession() {
     setAuthToken(null);
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await clearToken();
     setToken(null);
     setUser(null);
     disconnectSocket();
@@ -46,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     (async () => {
-      const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
+      const storedToken = await getToken();
       if (storedToken) {
         setAuthToken(storedToken);
         try {
