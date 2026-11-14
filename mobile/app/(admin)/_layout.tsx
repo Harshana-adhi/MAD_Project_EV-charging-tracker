@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/theme';
+import { ThemeToggleButton } from '@/components';
 
 export default function AdminTabsLayout() {
   const theme = useAppTheme();
@@ -12,6 +13,7 @@ export default function AdminTabsLayout() {
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarActiveBackgroundColor: theme.colors.secondaryContainer,
         tabBarStyle: { backgroundColor: theme.colors.surface },
+        headerRight: () => <ThemeToggleButton />,
       }}
     >
       <Tabs.Screen

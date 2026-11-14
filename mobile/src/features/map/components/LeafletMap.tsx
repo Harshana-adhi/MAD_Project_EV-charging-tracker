@@ -17,7 +17,6 @@ const HTML = `<!DOCTYPE html>
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; }
     .dark-tiles .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
-    .attribution { position: absolute; bottom: 2px; right: 4px; font-size: 10px; background: rgba(255,255,255,0.7); padding: 1px 4px; z-index: 1000; }
   </style>
 </head>
 <body>
@@ -25,10 +24,35 @@ const HTML = `<!DOCTYPE html>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const map = L.map('map', { zoomControl: false }).setView([7.2906, 80.6337], 13);
-    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map);
+    const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const OSM_ATTRIBUTION = '&copy; OpenStreetMap contributors';
+    const TILE_STYLES = {
+      light: { url: OSM_URL, attribution: OSM_ATTRIBUTION, maxNativeZoom: 19, darkFilter: false },
+      dark: { url: OSM_URL, attribution: OSM_ATTRIBUTION, maxNativeZoom: 19, darkFilter: true },
+      satellite: {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+        maxNativeZoom: 18,
+        darkFilter: false,
+      },
+    };
+    let tiles = null;
+    let currentStyle = null;
+
+    function setMapStyle(style) {
+      if (style === currentStyle) return;
+      const config = TILE_STYLES[style] || TILE_STYLES.light;
+      if (tiles) map.removeLayer(tiles);
+      tiles = L.tileLayer(config.url, {
+        attribution: config.attribution,
+        maxZoom: 19,
+        maxNativeZoom: config.maxNativeZoom,
+      }).addTo(map);
+      document.body.classList.toggle('dark-tiles', config.darkFilter);
+      currentStyle = style;
+    }
+
+    setMapStyle('light');
 
     let markers = [];
     let meMarker = null;
@@ -45,8 +69,8 @@ const HTML = `<!DOCTYPE html>
     }
 
     window.setData = function (payload) {
-      const { stations, me, dark } = payload;
-      document.body.classList.toggle('dark-tiles', !!dark);
+      const { stations, me, mapStyle } = payload;
+      setMapStyle(mapStyle);
 
       clearMarkers();
       stations.forEach((station) => {
@@ -87,22 +111,24 @@ export type LeafletMapHandle = {
   centreOn: (lat: number, lng: number, zoom?: number) => void;
 };
 
+export type TileStyle = 'light' | 'dark' | 'satellite';
+
 type LeafletMapProps = {
   stations: StationSummary[];
   me?: { lat: number; lng: number } | null;
-  dark: boolean;
+  tileStyle: TileStyle;
   onSelectStation: (id: string) => void;
 };
 
 export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(function LeafletMap(
-  { stations, me, dark, onSelectStation },
+  { stations, me, tileStyle, onSelectStation },
   ref,
 ) {
   const webviewRef = useRef<WebView>(null);
   const readyRef = useRef(false);
 
   function sendData() {
-    const payload = JSON.stringify({ stations, me: me ?? null, dark });
+    const payload = JSON.stringify({ stations, me: me ?? null, mapStyle: tileStyle });
     webviewRef.current?.injectJavaScript(`window.setData(${payload}); true;`);
   }
 
@@ -115,7 +141,7 @@ export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(function
   useEffect(() => {
     if (readyRef.current) sendData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stations, me, dark]);
+  }, [stations, me, tileStyle]);
 
   return (
     <RefForwardingWebView

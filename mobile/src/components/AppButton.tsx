@@ -1,3 +1,4 @@
+import type { StyleProp, ViewStyle } from 'react-native';
 import { Button } from 'react-native-paper';
 import { useAppTheme } from '@/lib/theme';
 
@@ -9,6 +10,7 @@ type AppButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   danger?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function AppButton({
@@ -19,6 +21,7 @@ export function AppButton({
   loading,
   disabled,
   danger,
+  style,
 }: AppButtonProps) {
   const theme = useAppTheme();
   const dangerProps = danger
@@ -32,6 +35,7 @@ export function AppButton({
       icon={icon}
       loading={loading}
       disabled={disabled || loading}
+      style={style}
       {...dangerProps}
     >
       {label}

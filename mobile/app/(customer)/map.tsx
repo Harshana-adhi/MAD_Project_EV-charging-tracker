@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { Badge, FAB, IconButton, Searchbar, Text } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Badge, FAB, IconButton, Menu, Searchbar, Surface, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth';
 import { useStations } from '@/features/map/hooks';
 import { LeafletMap, type LeafletMapHandle } from '@/features/map/components/LeafletMap';
 import { StationCard } from '@/features/map/components/StationCard';
 import { FilterSheet } from '@/features/map/components/FilterSheet';
-import { AppButton, EmptyState, ErrorView, LoadingView } from '@/components';
+import { MAP_STYLE_OPTIONS, useMapStyle } from '@/features/map/mapStyle';
+import { AppButton, EmptyState, ErrorView, LoadingView, ThemeToggleButton } from '@/components';
 import { useAppTheme, spacing } from '@/lib/theme';
 import { DEFAULT_REGION } from '@/lib/config';
 import type { StationFilters } from '@/types/domain';
@@ -18,6 +20,10 @@ export default function MapScreen() {
   const theme = useAppTheme();
   const { user } = useAuth();
   const mapRef = useRef<LeafletMapHandle>(null);
+  const insets = useSafeAreaInsets();
+  const { mapStyle, setMapStyle } = useMapStyle();
+  const [styleMenuVisible, setStyleMenuVisible] = useState(false);
+  const tileStyle = mapStyle === 'auto' ? (theme.dark ? 'dark' : 'light') : mapStyle;
 
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [search, setSearch] = useState('');
@@ -72,37 +78,72 @@ export default function MapScreen() {
             ref={mapRef}
             stations={stations ?? []}
             me={location}
-            dark={theme.dark}
+            tileStyle={tileStyle}
             onSelectStation={setSelectedId}
           />
 
-          <View style={styles.topBar}>
+          <Surface
+            elevation={2}
+            style={[styles.searchPill, { top: insets.top + spacing.sm, backgroundColor: theme.colors.surface }]}
+          >
             <Searchbar
               placeholder="Search stations"
               value={search}
               onChangeText={setSearch}
               onIconPress={() => setSearch('')}
-              style={[styles.searchbar, { backgroundColor: theme.colors.surface }]}
+              elevation={0}
+              style={styles.searchInput}
             />
-            <View style={styles.topBarButton}>
+            <View>
               <IconButton
                 icon="filter-variant"
-                mode="contained"
-                containerColor={theme.colors.surface}
+                accessibilityLabel="Filters"
                 onPress={() => setFilterSheetVisible(true)}
               />
               {activeFilterCount > 0 ? <Badge style={styles.badge}>{activeFilterCount}</Badge> : null}
             </View>
             <IconButton
               icon="format-list-bulleted"
-              mode="contained"
-              containerColor={theme.colors.surface}
+              accessibilityLabel="Show stations as a list"
               onPress={() => setViewMode('list')}
             />
+          </Surface>
+
+          <View style={[styles.sideButtons, { top: insets.top + 72 }]}>
+            <Menu
+              visible={styleMenuVisible}
+              onDismiss={() => setStyleMenuVisible(false)}
+              anchorPosition="bottom"
+              anchor={
+                <IconButton
+                  icon="layers-outline"
+                  mode="contained"
+                  containerColor={theme.colors.surface}
+                  iconColor={theme.colors.onSurface}
+                  accessibilityLabel="Map style"
+                  onPress={() => setStyleMenuVisible(true)}
+                />
+              }
+            >
+              {MAP_STYLE_OPTIONS.map((option) => (
+                <Menu.Item
+                  key={option.value}
+                  title={option.label}
+                  leadingIcon={mapStyle === option.value ? 'check' : option.icon}
+                  onPress={() => {
+                    setMapStyle(option.value);
+                    setStyleMenuVisible(false);
+                  }}
+                />
+              ))}
+            </Menu>
+            <ThemeToggleButton contained />
           </View>
 
           {locationDenied ? (
-            <View style={[styles.banner, { backgroundColor: theme.colors.surface }]}>
+            <View
+              style={[styles.banner, { top: insets.top + 72, backgroundColor: theme.colors.surface }]}
+            >
               <Text variant="bodySmall">Location off – showing Kandy</Text>
             </View>
           ) : null}
@@ -142,10 +183,20 @@ export default function MapScreen() {
           ) : null}
         </>
       ) : (
-        <View style={styles.listContainer}>
+        <View style={[styles.listContainer, { paddingTop: insets.top + spacing.sm }]}>
           <View style={styles.topBarList}>
-            <Searchbar placeholder="Search stations" value={search} onChangeText={setSearch} />
-            <IconButton icon="map" mode="contained" onPress={() => setViewMode('map')} />
+            <Searchbar
+              placeholder="Search stations"
+              value={search}
+              onChangeText={setSearch}
+              style={styles.searchbar}
+            />
+            <IconButton
+              icon="map"
+              mode="contained"
+              accessibilityLabel="Show map"
+              onPress={() => setViewMode('map')}
+            />
           </View>
           {isLoading ? (
             <LoadingView />
@@ -200,23 +251,23 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: {
+  searchPill: {
     position: 'absolute',
-    top: spacing.lg,
     left: spacing.lg,
     right: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    borderRadius: 28,
+    paddingRight: spacing.xs,
   },
+  searchInput: { flex: 1, backgroundColor: 'transparent' },
   searchbar: { flex: 1 },
-  topBarButton: { position: 'relative' },
-  badge: { position: 'absolute', top: -4, right: -4 },
+  badge: { position: 'absolute', top: 4, right: 4 },
+  sideButtons: { position: 'absolute', right: spacing.lg - 6, alignItems: 'center' },
   banner: {
     position: 'absolute',
-    top: 72,
     left: spacing.lg,
-    right: spacing.lg,
+    right: 72,
     padding: spacing.sm,
     borderRadius: 8,
     alignItems: 'center',

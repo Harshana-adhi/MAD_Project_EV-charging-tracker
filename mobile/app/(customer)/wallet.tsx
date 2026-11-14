@@ -43,16 +43,27 @@ export default function WalletScreen() {
         {QUICK_AMOUNTS.map((amount) => (
           <AppButton
             key={amount}
-            label={`+${amount}`}
+            label={`+${amount.toLocaleString('en-US')}`}
+            style={styles.quickButton}
             mode="contained-tonal"
             onPress={() => router.push({ pathname: '/topup', params: { amount: String(amount) } })}
           />
         ))}
       </View>
 
-      <AppButton label="Top up with card" onPress={() => router.push('/topup')} />
-      <AppButton label="Pay by bank slip" mode="outlined" onPress={() => router.push('/topup-slip')} />
-      <AppButton label="Transaction history" mode="text" onPress={() => router.push('/transactions')} />
+      <View style={styles.actions}>
+        <AppButton label="Top up with card" onPress={() => router.push('/topup')} />
+        <AppButton
+          label="Pay by bank slip"
+          mode="outlined"
+          onPress={() => router.push('/topup-slip')}
+        />
+        <AppButton
+          label="Transaction history"
+          mode="text"
+          onPress={() => router.push('/transactions')}
+        />
+      </View>
     </Screen>
   );
 }
@@ -62,4 +73,6 @@ const styles = StyleSheet.create({
   leaf: { position: 'absolute', top: spacing.lg, right: spacing.lg },
   balance: { fontWeight: '600' },
   quickRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  quickButton: { flex: 1 },
+  actions: { gap: spacing.md },
 });

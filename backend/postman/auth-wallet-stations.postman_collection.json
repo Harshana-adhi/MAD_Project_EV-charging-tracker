@@ -1,11 +1,12 @@
 {
   "info": {
-    "name": "EV Charge Tracker - Auth & Wallet (M1)",
+    "name": "EV Charge Tracker - Auth, Wallet & Stations (M1)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:4000/api/v1" },
-    { "key": "token", "value": "" }
+    { "key": "token", "value": "" },
+    { "key": "stationId", "value": "" }
   ],
   "item": [
     {
@@ -86,6 +87,50 @@
         "url": "{{baseUrl}}/wallet/topup",
         "body": { "mode": "raw", "raw": "{\n  \"amount\": 500,\n  \"cardNumber\": \"4000000000000002\"\n}" }
       }
+    },
+    {
+      "name": "List Stations",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.data && body.data.length) pm.collectionVariables.set('stationId', body.data[0].id);"
+            ]
+          }
+        }
+      ],
+      "request": { "method": "GET", "url": "{{baseUrl}}/stations" }
+    },
+    {
+      "name": "List Stations (filtered)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/stations?connector=CCS2&availableOnly=true&lat=7.2906&lng=80.6337",
+          "host": ["{{baseUrl}}"],
+          "path": ["stations"],
+          "query": [
+            { "key": "connector", "value": "CCS2" },
+            { "key": "availableOnly", "value": "true" },
+            { "key": "lat", "value": "7.2906" },
+            { "key": "lng", "value": "80.6337" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Station",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/stations/{{stationId}}"
+      }
+    },
+    {
+      "name": "Get Station (not found)",
+      "request": { "method": "GET", "url": "{{baseUrl}}/stations/00000000-0000-0000-0000-000000000000" }
     }
   ]
 }
