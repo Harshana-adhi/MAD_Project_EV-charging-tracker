@@ -2,8 +2,6 @@
 
 A mobile app that connects EV drivers with charging point owners: live map and filters, QR-based charging sessions with a prepaid credit wallet, owner earnings and withdrawals, and admin verification. Built as a 2-day group project (INTE 22283, Mobile Application Development).
 
-Full specification and contract: `AI_CONTEXT.md`.
-
 ## Stack
 
 - `mobile/` — React Native + Expo (Expo Router, TypeScript)
@@ -46,4 +44,4 @@ Seeded demo accounts (password `Password123`): `admin@evct.lk`, `owner@evct.lk`,
 - `feature/<name>` — one branch per functionality, from `develop`
 - `fix/<name>` — bug fixes, from `develop`
 
-All changes merge into `develop` through a pull request. See `AI_CONTEXT.md` Section 14 for the full workflow.
+All changes merge into `develop` through a pull request.
