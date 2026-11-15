@@ -7,7 +7,7 @@ import { Link, router } from 'expo-router';
 import { Text } from 'react-native-paper';
 import { Screen, AppTextInput, AppButton, ErrorView } from '@/components';
 import { useAuth } from '@/features/auth';
-import { useAppTheme } from '@/lib/theme';
+import { useAppTheme, spacing } from '@/lib/theme';
 
 type Role = 'customer' | 'owner';
 
@@ -70,54 +70,58 @@ export default function RegisterScreen() {
 
   return (
     <Screen scroll>
-      <Text variant="headlineSmall">Create account</Text>
-      <Controller
-        control={control}
-        name="fullName"
-        render={({ field }) => (
-          <AppTextInput
-            label="Full name"
-            value={field.value}
-            onChangeText={field.onChange}
-            error={errors.fullName?.message}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="email"
-        render={({ field }) => (
-          <AppTextInput
-            label="Email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={field.value}
-            onChangeText={field.onChange}
-            error={errors.email?.message}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="password"
-        render={({ field }) => (
-          <AppTextInput
-            label="Password"
-            secureTextEntry
-            value={field.value}
-            onChangeText={field.onChange}
-            error={errors.password?.message}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="role"
-        render={({ field }) => <RoleToggle value={field.value} onChange={field.onChange} />}
-      />
-      {submitError ? <ErrorView error={submitError} /> : null}
-      <AppButton label="Create account" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
-      <Link href="/(auth)/login">Already have an account? Log in</Link>
+      <View style={{ gap: spacing.md }}>
+        <Text variant="headlineSmall">Create account</Text>
+        <Controller
+          control={control}
+          name="fullName"
+          render={({ field }) => (
+            <AppTextInput
+              label="Full name"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={errors.fullName?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="email"
+          render={({ field }) => (
+            <AppTextInput
+              label="Email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={errors.email?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="password"
+          render={({ field }) => (
+            <AppTextInput
+              label="Password"
+              secureTextEntry
+              value={field.value}
+              onChangeText={field.onChange}
+              error={errors.password?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="role"
+          render={({ field }) => <RoleToggle value={field.value} onChange={field.onChange} />}
+        />
+        {submitError ? <ErrorView error={submitError} /> : null}
+        <AppButton label="Create account" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
+        <Link href="/(auth)/login" style={{ marginTop: spacing.sm, textAlign: 'center' }}>
+          Already have an account? Log in
+        </Link>
+      </View>
     </Screen>
   );
 }
