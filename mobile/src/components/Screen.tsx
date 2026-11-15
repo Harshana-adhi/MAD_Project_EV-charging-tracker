@@ -3,17 +3,19 @@ import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { HeaderShownContext } from 'expo-router/react-navigation';
 import { Appbar } from 'react-native-paper';
+import { router } from 'expo-router';
 import { useAppTheme, spacing } from '@/lib/theme';
 
 type ScreenProps = {
   children: ReactNode;
   title?: string;
+  back?: boolean;
   scroll?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
 };
 
-export function Screen({ children, title, scroll, refreshing, onRefresh }: ScreenProps) {
+export function Screen({ children, title, back, scroll, refreshing, onRefresh }: ScreenProps) {
   const theme = useAppTheme();
   const background = { backgroundColor: theme.colors.background };
   const navigatorHeaderShown = useContext(HeaderShownContext);
@@ -29,6 +31,7 @@ export function Screen({ children, title, scroll, refreshing, onRefresh }: Scree
     <SafeAreaView edges={edges} style={[styles.safeArea, background]}>
       {title ? (
         <Appbar.Header elevated={false} style={{ backgroundColor: theme.colors.surface }}>
+          {back && router.canGoBack() ? <Appbar.BackAction onPress={() => router.back()} /> : null}
           <Appbar.Content title={title} titleStyle={{ color: theme.colors.onSurface }} />
         </Appbar.Header>
       ) : null}
