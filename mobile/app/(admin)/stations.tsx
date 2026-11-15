@@ -16,6 +16,7 @@ import { useAdminCounts, useAdminStations, useReviewStation } from '@/features/a
 import { errorMessage } from '@/lib/errors';
 import { spacing } from '@/lib/theme';
 import type { AdminStation, StationStatus } from '@/types/domain';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
 const STATUSES: StationStatus[] = ['pending', 'approved', 'rejected'];
 
@@ -48,8 +49,9 @@ export default function AdminStationsScreen() {
     { value: 'approved', label: 'Approved' },
     { value: 'rejected', label: 'Rejected' },
   ];
-  const { data: stations, isLoading, isError, error, refetch, isRefetching } =
+  const { data: stations, isLoading, isError, error, refetch } =
     useAdminStations(status);
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const reviewStation = useReviewStation();
   const [stationToApprove, setStationToApprove] = useState<AdminStation | null>(null);
   const [stationToReject, setStationToReject] = useState<AdminStation | null>(null);
@@ -72,8 +74,8 @@ export default function AdminStationsScreen() {
       <FlatList
         data={stations}
         keyExtractor={(station) => station.id}
-        refreshing={isRefetching}
-        onRefresh={refetch}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         renderItem={({ item }) => (
           <StationApprovalCard
             station={item}

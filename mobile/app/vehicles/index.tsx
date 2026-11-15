@@ -16,10 +16,12 @@ import { useDeleteVehicle, useVehicles } from '@/features/profile/hooks';
 import { errorMessage } from '@/lib/errors';
 import { spacing } from '@/lib/theme';
 import type { Vehicle } from '@/types/domain';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
 export default function MyVehiclesScreen() {
   const snackbar = useSnackbar();
-  const { data: vehicles, isLoading, isError, error, refetch, isRefetching } = useVehicles();
+  const { data: vehicles, isLoading, isError, error, refetch } = useVehicles();
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const deleteVehicle = useDeleteVehicle();
   const [menuVehicleId, setMenuVehicleId] = useState<string | null>(null);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
@@ -83,8 +85,8 @@ export default function MyVehiclesScreen() {
         data={vehicles}
         keyExtractor={(vehicle) => vehicle.id}
         renderItem={renderVehicle}
-        refreshing={isRefetching}
-        onRefresh={refetch}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <EmptyState

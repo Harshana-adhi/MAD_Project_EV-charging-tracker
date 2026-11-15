@@ -17,14 +17,16 @@ import type { AdminTopup } from '@/types/domain';
 import { useAdminTopups, useReviewTopup } from '../hooks';
 import { ApprovalActions } from './ApprovalActions';
 import { ReasonDialog } from './ReasonDialog';
+import { usePullToRefresh } from '../usePullToRefresh';
 
 const THUMBNAIL_SIZE = 64;
 
 export function TopupsTab() {
   const theme = useAppTheme();
   const snackbar = useSnackbar();
-  const { data: topups, isLoading, isError, error, refetch, isRefetching } =
+  const { data: topups, isLoading, isError, error, refetch } =
     useAdminTopups('pending');
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const reviewTopup = useReviewTopup();
   const [topupToApprove, setTopupToApprove] = useState<AdminTopup | null>(null);
   const [topupToReject, setTopupToReject] = useState<AdminTopup | null>(null);
@@ -98,8 +100,8 @@ export function TopupsTab() {
         data={topups}
         keyExtractor={(topup) => topup.id}
         renderItem={renderTopup}
-        refreshing={isRefetching}
-        onRefresh={refetch}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={
           <EmptyState
             icon="cash-check"

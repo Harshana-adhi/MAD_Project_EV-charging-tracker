@@ -15,14 +15,16 @@ import { useAppTheme, spacing } from '@/lib/theme';
 import type { AdminWithdrawal } from '@/types/domain';
 import { useAdminWithdrawals, useProcessWithdrawal } from '../hooks';
 import { ApprovalActions } from './ApprovalActions';
+import { usePullToRefresh } from '../usePullToRefresh';
 
 type PendingAction = { withdrawal: AdminWithdrawal; approve: boolean };
 
 export function WithdrawalsTab() {
   const theme = useAppTheme();
   const snackbar = useSnackbar();
-  const { data: withdrawals, isLoading, isError, error, refetch, isRefetching } =
+  const { data: withdrawals, isLoading, isError, error, refetch } =
     useAdminWithdrawals('pending');
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const processWithdrawal = useProcessWithdrawal();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const secondaryText = { color: theme.colors.onSurfaceVariant };
@@ -74,8 +76,8 @@ export function WithdrawalsTab() {
         data={withdrawals}
         keyExtractor={(withdrawal) => withdrawal.id}
         renderItem={renderWithdrawal}
-        refreshing={isRefetching}
-        onRefresh={refetch}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={
           <EmptyState
             icon="bank-transfer"

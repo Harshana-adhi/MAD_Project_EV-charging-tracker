@@ -8,6 +8,7 @@ import { useIncome } from '@/features/reports/hooks';
 import type { IncomePeriod } from '@/features/reports/types';
 import { formatCredits } from '@/lib/format';
 import { useAppTheme, spacing } from '@/lib/theme';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
 const PERIOD_BUTTONS = [
   { value: 'day', label: 'Day' },
@@ -24,7 +25,8 @@ const SUMMARY: Record<IncomePeriod, { current: string; total: string }> = {
 export default function AdminReportsScreen() {
   const theme = useAppTheme();
   const [period, setPeriod] = useState<IncomePeriod>('month');
-  const { data: rows, isLoading, isError, error, refetch, isRefetching } = useIncome(period);
+  const { data: rows, isLoading, isError, error, refetch } = useIncome(period);
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
 
   function renderContent() {
     if (isLoading) return <LoadingView />;
@@ -37,8 +39,8 @@ export default function AdminReportsScreen() {
       <FlatList
         data={rows}
         keyExtractor={(row) => row.key}
-        refreshing={isRefetching}
-        onRefresh={refetch}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ItemSeparatorComponent={Divider}
         ListHeaderComponent={
           <View style={styles.summary}>
