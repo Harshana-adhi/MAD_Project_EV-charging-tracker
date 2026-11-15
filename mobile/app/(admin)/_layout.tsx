@@ -31,6 +31,16 @@ export default function AdminTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="map"
+        options={{
+          title: 'Map',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="map-marker-radius" color={color as string} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="stations"
         options={{
           title: 'Stations',
