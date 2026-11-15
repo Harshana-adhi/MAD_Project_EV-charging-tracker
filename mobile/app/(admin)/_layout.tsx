@@ -1,10 +1,15 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/theme';
-import { ThemeToggleButton } from '@/components';
+import { LoadingView, ThemeToggleButton } from '@/components';
+import { useAuth } from '@/features/auth';
 
 export default function AdminTabsLayout() {
   const theme = useAppTheme();
+  const { role, loading } = useAuth();
+
+  if (loading) return <LoadingView />;
+  if (role !== 'admin') return <Redirect href="/" />;
 
   return (
     <Tabs
