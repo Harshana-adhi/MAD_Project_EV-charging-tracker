@@ -16,13 +16,23 @@ type CountCard = {
 };
 
 const COUNT_CARDS: CountCard[] = [
-  { key: 'pendingStations', label: 'Pending stations', icon: 'shield-check', route: '/(admin)/stations' },
-  { key: 'pendingTopups', label: 'Pending top-ups', icon: 'cash-plus', route: '/(admin)/payments' },
+  {
+    key: 'pendingStations',
+    label: 'Pending stations',
+    icon: 'shield-check',
+    route: { pathname: '/(admin)/stations', params: { status: 'pending' } },
+  },
+  {
+    key: 'pendingTopups',
+    label: 'Pending top-ups',
+    icon: 'cash-plus',
+    route: { pathname: '/(admin)/payments', params: { tab: 'topups' } },
+  },
   {
     key: 'pendingWithdrawals',
     label: 'Pending withdrawals',
     icon: 'bank-transfer',
-    route: '/(admin)/payments',
+    route: { pathname: '/(admin)/payments', params: { tab: 'withdrawals' } },
   },
   { key: 'users', label: 'Users', icon: 'account-group', route: '/(admin)/users' },
 ];
@@ -48,7 +58,15 @@ export default function AdminDashboardScreen() {
         {COUNT_CARDS.map((card) => (
           <View key={card.key} style={styles.cell}>
             <Card onPress={() => router.navigate(card.route)}>
-              <MaterialCommunityIcons name={card.icon} size={24} color={theme.colors.primary} />
+              <View style={styles.cardTop}>
+                <MaterialCommunityIcons name={card.icon} size={24} color={theme.colors.primary} />
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={20}
+                  color={theme.colors.onSurfaceVariant}
+                  accessibilityLabel={`Open ${card.label.toLowerCase()}`}
+                />
+              </View>
               <Text variant="titleMedium" style={styles.count}>
                 {counts[card.key]}
               </Text>
@@ -67,5 +85,6 @@ const styles = StyleSheet.create({
   intro: { marginBottom: spacing.xl },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   cell: { width: '48%' },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   count: { marginTop: spacing.sm, fontVariant: ['tabular-nums'] },
 });

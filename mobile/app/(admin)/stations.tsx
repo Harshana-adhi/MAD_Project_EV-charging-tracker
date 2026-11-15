@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SegmentedButtons } from 'react-native-paper';
 import {
   ConfirmDialog,
@@ -11,20 +12,42 @@ import {
 } from '@/components';
 import { ReasonDialog } from '@/features/admin/components/ReasonDialog';
 import { StationApprovalCard } from '@/features/admin/components/StationApprovalCard';
-import { useAdminStations, useReviewStation } from '@/features/admin/hooks';
+import { useAdminCounts, useAdminStations, useReviewStation } from '@/features/admin/hooks';
 import { errorMessage } from '@/lib/errors';
 import { spacing } from '@/lib/theme';
 import type { AdminStation, StationStatus } from '@/types/domain';
 
-const STATUS_BUTTONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-];
+const STATUSES: StationStatus[] = ['pending', 'approved', 'rejected'];
+
+function isStationStatus(value: unknown): value is StationStatus {
+  return STATUSES.includes(value as StationStatus);
+}
 
 export default function AdminStationsScreen() {
   const snackbar = useSnackbar();
-  const [status, setStatus] = useState<StationStatus>('pending');
+  const params = useLocalSearchParams<{ status?: string }>();
+  const { data: counts } = useAdminCounts();
+  const [status, setStatus] = useState<StationStatus>(
+    isStationStatus(params.status) ? params.status : 'pending',
+  );
+
+  useEffect(() => {
+    if (isStationStatus(params.status)) setStatus(params.status);
+  }, [params.status]);
+
+  function changeStatus(value: string) {
+    setStatus(value as StationStatus);
+    router.setParams({ status: value });
+  }
+
+  const statusButtons = [
+    {
+      value: 'pending',
+      label: counts?.pendingStations ? `Pending (${counts.pendingStations})` : 'Pending',
+    },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+  ];
   const { data: stations, isLoading, isError, error, refetch, isRefetching } =
     useAdminStations(status);
   const reviewStation = useReviewStation();
@@ -78,8 +101,8 @@ export default function AdminStationsScreen() {
     <Screen>
       <SegmentedButtons
         value={status}
-        onValueChange={(value) => setStatus(value as StationStatus)}
-        buttons={STATUS_BUTTONS}
+        onValueChange={changeStatus}
+        buttons={statusButtons}
         style={styles.segments}
       />
       {renderContent()}
