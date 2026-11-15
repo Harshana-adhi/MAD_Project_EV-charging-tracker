@@ -7,11 +7,23 @@ async function main() {
 
   let allOk = true;
   for (const wallet of wallets) {
-    const sum = wallet.transactions.reduce((total, txn) => total + txn.amount.toNumber(), 0);
+    // "hold"/"release" only move money into and out of `held` – they never touch `balance`.
+    const balanceSum = wallet.transactions
+      .filter((txn) => txn.type !== 'hold' && txn.type !== 'release')
+      .reduce((total, txn) => total + txn.amount.toNumber(), 0);
+    const heldSum = wallet.transactions
+      .filter((txn) => txn.type === 'hold' || txn.type === 'release')
+      .reduce((total, txn) => total + txn.amount.toNumber(), 0);
     const balance = wallet.balance.toNumber();
-    if (Math.abs(sum - balance) > 0.01) {
+    const held = wallet.held.toNumber();
+
+    if (Math.abs(balanceSum - balance) > 0.01) {
       allOk = false;
-      console.log(`Mismatch for wallet ${wallet.id}: ledger sum ${sum}, balance ${balance}`);
+      console.log(`Balance mismatch for wallet ${wallet.id}: ledger sum ${balanceSum}, balance ${balance}`);
+    }
+    if (Math.abs(heldSum - held) > 0.01) {
+      allOk = false;
+      console.log(`Held mismatch for wallet ${wallet.id}: ledger sum ${heldSum}, held ${held}`);
     }
   }
 

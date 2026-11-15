@@ -93,6 +93,7 @@ export async function reviewStation(stationId: string, input: ReviewInput) {
       : `Station rejected: ${input.reason}`,
     type: 'station_review',
     refId: station.id,
+    email: true,
   });
 
   const updated = await prisma.station.findUniqueOrThrow({ where: { id: stationId } });
