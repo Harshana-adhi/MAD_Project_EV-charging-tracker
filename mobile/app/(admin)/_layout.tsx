@@ -1,8 +1,25 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, router } from 'expo-router';
+import { IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/theme';
 import { LoadingView, ThemeToggleButton } from '@/components';
 import { useAuth } from '@/features/auth';
+
+function BackToDashboard() {
+  return (
+    <IconButton
+      icon="arrow-left"
+      accessibilityLabel="Back to dashboard"
+      onPress={() => router.navigate('/(admin)/dashboard')}
+    />
+  );
+}
+
+// Stations, payments and users are opened from the dashboard cards, so they are hidden from the tab bar.
+const dashboardPageOptions = {
+  tabBarItemStyle: { display: 'none' as const },
+  headerLeft: () => <BackToDashboard />,
+};
 
 export default function AdminTabsLayout() {
   const theme = useAppTheme();
@@ -13,6 +30,7 @@ export default function AdminTabsLayout() {
 
   return (
     <Tabs
+      backBehavior="initialRoute"
       screenOptions={{
         tabBarActiveTintColor: theme.colors.onSecondaryContainer,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
@@ -41,33 +59,6 @@ export default function AdminTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="stations"
-        options={{
-          title: 'Stations',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="shield-check" color={color as string} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="payments"
-        options={{
-          title: 'Payments',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cash-check" color={color as string} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="users"
-        options={{
-          title: 'Users',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-group" color={color as string} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -76,6 +67,9 @@ export default function AdminTabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="stations" options={{ title: 'Stations', ...dashboardPageOptions }} />
+      <Tabs.Screen name="payments" options={{ title: 'Payments', ...dashboardPageOptions }} />
+      <Tabs.Screen name="users" options={{ title: 'Users', ...dashboardPageOptions }} />
     </Tabs>
   );
 }
