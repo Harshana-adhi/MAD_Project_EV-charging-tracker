@@ -101,6 +101,14 @@ export function ProfileScreen() {
           onPress={() => router.push('/vehicles')}
         />
       ) : null}
+      {role === 'owner' ? (
+        <List.Item
+          title="Monthly reports"
+          left={(props) => <List.Icon {...props} icon="chart-bar" />}
+          right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          onPress={() => router.push('/reports/mine')}
+        />
+      ) : null}
       {role === 'customer' || role === 'owner' ? (
         <List.Item
           title="Transaction history"
