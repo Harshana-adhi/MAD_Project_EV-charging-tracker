@@ -1,8 +1,9 @@
 import { Redirect, Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/theme';
-import { LoadingView, ThemeToggleButton } from '@/components';
+import { LoadingView } from '@/components';
 import { useAuth } from '@/features/auth';
+import { NotificationHeaderActions } from '@/features/notifications';
 
 export default function CustomerTabsLayout() {
   const theme = useAppTheme();
@@ -21,7 +22,7 @@ export default function CustomerTabsLayout() {
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarActiveBackgroundColor: theme.colors.secondaryContainer,
         tabBarStyle: { backgroundColor: theme.colors.surface },
-        headerRight: () => <ThemeToggleButton />,
+        headerRight: () => <NotificationHeaderActions />,
       }}
     >
       <Tabs.Screen
