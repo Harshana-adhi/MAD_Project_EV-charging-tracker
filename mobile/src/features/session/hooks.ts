@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/features/auth';
+import { addMockNotification } from '@/features/notifications/api.mock';
+import { USE_MOCKS } from '@/lib/config';
 import { onEvent } from '@/lib/socket';
 import { api } from './index';
 
@@ -50,12 +53,21 @@ export function useStartSession() {
 
 export function useEndSession() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: ({ id, kwh }: { id: string; kwh: number }) => api.endSession(id, kwh),
     onSuccess: (_session, input) => {
       queryClient.invalidateQueries({ queryKey: ['session', input.id] });
       queryClient.invalidateQueries({ queryKey: ['session-active'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      if (USE_MOCKS && user) {
+        addMockNotification(user, {
+          title: 'Session completed',
+          body: 'Your charging receipt is ready.',
+          type: 'session_completed',
+          refId: input.id,
+        });
+      }
     },
   });
 }

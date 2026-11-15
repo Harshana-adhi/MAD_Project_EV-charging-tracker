@@ -2,8 +2,9 @@ import { Redirect, Tabs, router } from 'expo-router';
 import { IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/theme';
-import { LoadingView, ThemeToggleButton } from '@/components';
+import { LoadingView } from '@/components';
 import { useAuth } from '@/features/auth';
+import { NotificationHeaderActions } from '@/features/notifications';
 
 function BackToDashboard() {
   return (
@@ -36,7 +37,7 @@ export default function AdminTabsLayout() {
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarActiveBackgroundColor: theme.colors.secondaryContainer,
         tabBarStyle: { backgroundColor: theme.colors.surface },
-        headerRight: () => <ThemeToggleButton />,
+        headerRight: () => <NotificationHeaderActions />,
       }}
     >
       <Tabs.Screen
