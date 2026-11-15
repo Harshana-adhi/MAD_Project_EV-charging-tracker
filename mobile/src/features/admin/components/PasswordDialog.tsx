@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Dialog, Portal, Text } from 'react-native-paper';
 import { AppTextInput } from '@/components';
+import { useKeyboardOffset } from '../useKeyboardOffset';
 
 type PasswordDialogProps = {
   userName: string;
@@ -9,6 +10,7 @@ type PasswordDialogProps = {
 };
 
 export function PasswordDialog({ userName, onSubmit, onDismiss }: PasswordDialogProps) {
+  const keyboardOffset = useKeyboardOffset();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | undefined>();
 
@@ -22,7 +24,7 @@ export function PasswordDialog({ userName, onSubmit, onDismiss }: PasswordDialog
 
   return (
     <Portal>
-      <Dialog visible onDismiss={onDismiss}>
+      <Dialog visible onDismiss={onDismiss} style={{ marginBottom: keyboardOffset }}>
         <Dialog.Title>Reset password</Dialog.Title>
         <Dialog.Content>
           <Text variant="bodyMedium">
