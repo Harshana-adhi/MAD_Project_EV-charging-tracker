@@ -57,6 +57,15 @@ export default function AdminTabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-circle" color={color as string} size={size} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
