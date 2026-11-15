@@ -160,6 +160,7 @@ export async function reviewTopup(admin: AuthUser, topupId: string, input: Revie
       : `Your bank slip top-up of ${formatLkr(amount)} was rejected: ${input.reason}`,
     type: 'topup_review',
     refId: topupId,
+    email: true,
   });
 
   return toTopup(updated);
@@ -222,6 +223,7 @@ export async function processWithdrawal(admin: AuthUser, withdrawalId: string, a
       : `Withdrawal of ${formatLkr(amount)} rejected – credits returned`,
     type: 'withdrawal_review',
     refId: withdrawalId,
+    email: true,
   });
 
   return toWithdrawal(updated);
