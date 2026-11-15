@@ -13,6 +13,7 @@ import { router as notificationsRouter } from './modules/notifications/notificat
 import { router as ownerRouter } from './modules/owner/owner.routes';
 import { router as sessionsRouter } from './modules/sessions/sessions.routes';
 import { router as reportsRouter } from './modules/reports/reports.routes';
+import { router as passwordRouter } from './modules/password/password.routes';
 
 export const routes = Router();
 
@@ -33,3 +34,4 @@ routes.use('/notifications', notificationsRouter);
 routes.use('/owner', ownerRouter);
 routes.use('/sessions', sessionsRouter);
 routes.use('/reports', reportsRouter);
+routes.use('/password', passwordRouter);
