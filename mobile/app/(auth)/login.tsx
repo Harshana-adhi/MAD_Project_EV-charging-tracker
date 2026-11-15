@@ -70,6 +70,12 @@ export default function LoginScreen() {
             />
           )}
         />
+        <AppButton
+          label="Forgot password?"
+          mode="text"
+          style={{ alignSelf: 'flex-end' }}
+          onPress={() => router.push('/password/forgot')}
+        />
         {submitError ? <ErrorView error={submitError} /> : null}
         <AppButton label="Log in" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
         {USE_MOCKS ? (

@@ -2,8 +2,9 @@ import { Redirect, Tabs, router } from 'expo-router';
 import { IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme, spacing } from '@/lib/theme';
-import { LoadingView, LogoMark, ThemeToggleButton } from '@/components';
+import { LoadingView, LogoMark } from '@/components';
 import { useAuth } from '@/features/auth';
+import { NotificationHeaderActions } from '@/features/notifications';
 
 function BackToDashboard() {
   return (
@@ -37,7 +38,7 @@ export default function AdminTabsLayout() {
         tabBarActiveBackgroundColor: theme.colors.secondaryContainer,
         tabBarStyle: { backgroundColor: theme.colors.surface },
         headerLeft: () => <LogoMark size={26} style={{ marginLeft: spacing.md }} />,
-        headerRight: () => <ThemeToggleButton />,
+        headerRight: () => <NotificationHeaderActions />,
       }}
     >
       <Tabs.Screen
@@ -46,6 +47,15 @@ export default function AdminTabsLayout() {
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="view-dashboard" color={color as string} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: 'Reports',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="chart-bar" color={color as string} size={size} />
           ),
         }}
       />

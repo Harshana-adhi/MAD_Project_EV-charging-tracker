@@ -7,18 +7,21 @@ import { Badge, FAB, IconButton, Menu, Searchbar, Surface, Text } from 'react-na
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth';
 import { useStations } from '@/features/map/hooks';
+import { geocodeAddress } from '@/features/map/geocode';
 import { LeafletMap, type LeafletMapHandle } from '@/features/map/components/LeafletMap';
 import { StationCard } from '@/features/map/components/StationCard';
 import { FilterSheet } from '@/features/map/components/FilterSheet';
 import { MAP_STYLE_OPTIONS, useMapStyle } from '@/features/map/mapStyle';
-import { AppButton, EmptyState, ErrorView, LoadingView, ThemeToggleButton } from '@/components';
+import { AppButton, EmptyState, ErrorView, LoadingView, ThemeToggleButton, useSnackbar } from '@/components';
 import { useAppTheme, spacing } from '@/lib/theme';
 import { DEFAULT_REGION } from '@/lib/config';
+import { NotificationBell } from '@/features/notifications';
 import type { StationFilters } from '@/types/domain';
 
 export default function MapScreen() {
   const theme = useAppTheme();
   const { user } = useAuth();
+  const { show: showSnackbar } = useSnackbar();
   const mapRef = useRef<LeafletMapHandle>(null);
   const insets = useSafeAreaInsets();
   const { mapStyle, setMapStyle } = useMapStyle();
@@ -70,6 +73,19 @@ export default function MapScreen() {
     if (location) mapRef.current?.centreOn(location.lat, location.lng, 15);
   }
 
+  async function handleSearchSubmit() {
+    const query = search.trim();
+    if (!query) return;
+    setViewMode('map');
+    const place = await geocodeAddress(query);
+    if (place) {
+      mapRef.current?.centreOn(place.lat, place.lng, 14);
+    } else {
+      // The station list filter (by name/address) still applies even when the place itself can't be located.
+      showSnackbar("Couldn't find that place – showing matching stations only");
+    }
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {viewMode === 'map' ? (
@@ -87,10 +103,12 @@ export default function MapScreen() {
             style={[styles.searchPill, { top: insets.top + spacing.sm, backgroundColor: theme.colors.surface }]}
           >
             <Searchbar
-              placeholder="Search stations"
+              placeholder="Search stations or an address"
               value={search}
               onChangeText={setSearch}
               onIconPress={() => setSearch('')}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="search"
               elevation={0}
               style={styles.searchInput}
             />
@@ -137,6 +155,7 @@ export default function MapScreen() {
                 />
               ))}
             </Menu>
+            <NotificationBell contained />
             <ThemeToggleButton contained />
           </View>
 
@@ -197,6 +216,7 @@ export default function MapScreen() {
               accessibilityLabel="Show map"
               onPress={() => setViewMode('map')}
             />
+            <NotificationBell contained />
           </View>
           {isLoading ? (
             <LoadingView />

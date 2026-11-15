@@ -7,9 +7,11 @@ import { queryClient } from '@/lib/queryClient';
 import { lightTheme, darkTheme } from '@/lib/theme';
 import { ThemePreferenceProvider, useThemePreference } from '@/lib/themePreference';
 import { AuthProvider } from '@/features/auth';
+import { useNotificationEvents } from '@/features/notifications/hooks';
 import { SnackbarProvider } from '@/components';
 
 function ThemedApp() {
+  useNotificationEvents();
   const scheme = useColorScheme();
   const { preference } = useThemePreference();
   const isDark = preference === 'dark' || (preference === 'system' && scheme === 'dark');

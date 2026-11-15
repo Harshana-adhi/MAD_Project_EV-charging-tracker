@@ -5,6 +5,8 @@ import { Chip, Menu, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth';
 import { useStation } from '@/features/map/hooks';
+import { useReviews } from '@/features/reviews/hooks';
+import { ReviewCard } from '@/features/reviews/ReviewCard';
 import {
   AppButton,
   ConnectorChip,
@@ -23,6 +25,7 @@ export default function StationDetailsScreen() {
   const theme = useAppTheme();
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const { data: station, isLoading, isError, error, refetch } = useStation(id);
+  const reviews = useReviews(id);
 
   if (isLoading) return <LoadingView />;
   if (isError || !station) return <ErrorView error={error} onRetry={refetch} />;
@@ -128,6 +131,19 @@ export default function StationDetailsScreen() {
         </Menu>
         <AppButton label="Charge here" onPress={chargeHere} />
       </View>
+
+      <Text variant="titleMedium" style={styles.sectionTitle}>
+        Reviews
+      </Text>
+      {reviews.isPending && <LoadingView message="Loading reviews" />}
+      {reviews.isError && <ErrorView error={reviews.error} onRetry={() => void reviews.refetch()} />}
+      {reviews.data?.length === 0 && <Text variant="bodyMedium">No reviews yet</Text>}
+      {reviews.data?.slice(0, 3).map((review) => <ReviewCard key={review.id} review={review} />)}
+      <AppButton
+        label="See all reviews"
+        mode="outlined"
+        onPress={() => router.push({ pathname: '/station/[id]/reviews', params: { id: station.id } })}
+      />
     </Screen>
   );
 }

@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
-import { Chip, IconButton, Menu, Searchbar, Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useEffect, useMemo, useState } from 'react';
+import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { Chip, Divider, Searchbar } from 'react-native-paper';
 import {
-  Card,
   ConfirmDialog,
   EmptyState,
   ErrorView,
@@ -13,6 +11,8 @@ import {
 } from '@/components';
 import { useAuth } from '@/features/auth';
 import { PasswordDialog } from '@/features/admin/components/PasswordDialog';
+import { UserDetailsDialog } from '@/features/admin/components/UserDetailsDialog';
+import { UserRow } from '@/features/admin/components/UserRow';
 import {
   useAdminUsers,
   useResetUserPassword,
@@ -20,15 +20,25 @@ import {
 } from '@/features/admin/hooks';
 import { errorMessage } from '@/lib/errors';
 import { useAppTheme, spacing } from '@/lib/theme';
-import type { Role, User } from '@/types/domain';
+import type { User } from '@/types/domain';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
 const SEARCH_DELAY_MS = 300;
 
-const ROLE_LABEL: Record<Role, string> = {
-  customer: 'Customer',
-  owner: 'Station owner',
-  admin: 'Admin',
-};
+type Filter = 'all' | 'customer' | 'owner' | 'blocked';
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'customer', label: 'Customers' },
+  { value: 'owner', label: 'Owners' },
+  { value: 'blocked', label: 'Blocked' },
+];
+
+function matchesFilter(user: User, filter: Filter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'blocked') return user.isBlocked;
+  return user.role === filter;
+}
 
 export default function AdminUsersScreen() {
   const theme = useAppTheme();
@@ -36,10 +46,12 @@ export default function AdminUsersScreen() {
   const { user: currentUser } = useAuth();
   const [searchText, setSearchText] = useState('');
   const [search, setSearch] = useState('');
-  const { data: users, isLoading, isError, error, refetch, isRefetching } = useAdminUsers(search);
+  const [filter, setFilter] = useState<Filter>('all');
+  const { data: users, isLoading, isError, error, refetch } = useAdminUsers(search);
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const setUserBlocked = useSetUserBlocked();
   const resetUserPassword = useResetUserPassword();
-  const [menuUserId, setMenuUserId] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToBlock, setUserToBlock] = useState<User | null>(null);
   const [userToReset, setUserToReset] = useState<User | null>(null);
 
@@ -49,13 +61,29 @@ export default function AdminUsersScreen() {
     return () => clearTimeout(timer);
   }, [searchText]);
 
+  const counts = useMemo(() => {
+    const list = users ?? [];
+    return Object.fromEntries(
+      FILTERS.map((item) => [item.value, list.filter((u) => matchesFilter(u, item.value)).length]),
+    ) as Record<Filter, number>;
+  }, [users]);
+
+  const visibleUsers = useMemo(
+    () => (users ?? []).filter((u) => matchesFilter(u, filter)),
+    [users, filter],
+  );
+
+  function canBlock(target: User): boolean {
+    return target.role !== 'admin' && target.id !== currentUser?.id;
+  }
+
   async function confirmBlock() {
     if (!userToBlock) return;
     const target = userToBlock;
     setUserToBlock(null);
     try {
       await setUserBlocked.mutateAsync({ id: target.id, blocked: !target.isBlocked });
-      snackbar.show(target.isBlocked ? 'User unblocked' : 'User blocked');
+      snackbar.show(target.isBlocked ? `${target.fullName} unblocked` : `${target.fullName} blocked`);
     } catch (err) {
       snackbar.show(errorMessage(err));
     }
@@ -73,83 +101,28 @@ export default function AdminUsersScreen() {
     }
   }
 
-  function renderUser({ item }: { item: User }) {
-    const canBlock = item.role !== 'admin' && item.id !== currentUser?.id;
-
-    return (
-      <Card
-        title={item.fullName}
-        subtitle={item.email}
-        right={
-          <Menu
-            visible={menuUserId === item.id}
-            onDismiss={() => setMenuUserId(null)}
-            anchor={
-              <IconButton
-                icon="dots-vertical"
-                accessibilityLabel={`Options for ${item.fullName}`}
-                onPress={() => setMenuUserId(item.id)}
-              />
-            }
-          >
-            {canBlock ? (
-              <Menu.Item
-                leadingIcon={item.isBlocked ? 'account-check' : 'account-cancel'}
-                title={item.isBlocked ? 'Unblock' : 'Block'}
-                onPress={() => {
-                  setMenuUserId(null);
-                  setUserToBlock(item);
-                }}
-              />
-            ) : null}
-            <Menu.Item
-              leadingIcon="lock-reset"
-              title="Reset password"
-              onPress={() => {
-                setMenuUserId(null);
-                setUserToReset(item);
-              }}
-            />
-          </Menu>
-        }
-      >
-        <View style={styles.badges}>
-          <Chip compact icon="account">
-            {ROLE_LABEL[item.role]}
-          </Chip>
-          {item.isBlocked ? (
-            <View style={[styles.blockedBadge, { backgroundColor: theme.colors.errorContainer }]}>
-              <MaterialCommunityIcons
-                name="account-cancel"
-                size={16}
-                color={theme.colors.onErrorContainer}
-              />
-              <Text variant="labelMedium" style={{ color: theme.colors.onErrorContainer }}>
-                Blocked
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </Card>
-    );
-  }
-
-  function renderContent() {
+  function renderList() {
     if (isLoading) return <LoadingView />;
     if (isError || !users) return <ErrorView error={error} onRetry={refetch} />;
     return (
       <FlatList
-        data={users}
+        data={visibleUsers}
         keyExtractor={(user) => user.id}
-        renderItem={renderUser}
-        refreshing={isRefetching}
-        onRefresh={refetch}
+        renderItem={({ item }) => <UserRow user={item} onPress={() => setSelectedUser(item)} />}
+        ItemSeparatorComponent={Divider}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         keyboardShouldPersistTaps="handled"
+        style={[styles.list, { backgroundColor: theme.colors.surface }]}
         ListEmptyComponent={
           <EmptyState
             icon="account-search"
             title="No users found"
-            message={search ? 'Try a different name or email.' : 'Registered users will appear here.'}
+            message={
+              search || filter !== 'all'
+                ? 'Try a different name, email or filter.'
+                : 'Registered users will appear here.'
+            }
           />
         }
       />
@@ -164,8 +137,38 @@ export default function AdminUsersScreen() {
         onChangeText={setSearchText}
         style={styles.search}
       />
-      {renderContent()}
+      <View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {FILTERS.map((item) => (
+            <Chip
+              key={item.value}
+              selected={filter === item.value}
+              showSelectedOverlay
+              mode={filter === item.value ? 'flat' : 'outlined'}
+              onPress={() => setFilter(item.value)}
+            >
+              {`${item.label} ${counts[item.value]}`}
+            </Chip>
+          ))}
+        </ScrollView>
+      </View>
+      {renderList()}
 
+      {selectedUser ? (
+        <UserDetailsDialog
+          user={selectedUser}
+          canBlock={canBlock(selectedUser)}
+          onDismiss={() => setSelectedUser(null)}
+          onBlock={() => {
+            setUserToBlock(selectedUser);
+            setSelectedUser(null);
+          }}
+          onResetPassword={() => {
+            setUserToReset(selectedUser);
+            setSelectedUser(null);
+          }}
+        />
+      ) : null}
       <ConfirmDialog
         visible={!!userToBlock}
         title={userToBlock?.isBlocked ? 'Unblock user?' : 'Block user?'}
@@ -191,14 +194,7 @@ export default function AdminUsersScreen() {
 }
 
 const styles = StyleSheet.create({
-  search: { marginBottom: spacing.lg },
-  badges: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  blockedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: spacing.lg,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
+  search: { marginBottom: spacing.md },
+  chips: { gap: spacing.sm, paddingBottom: spacing.md },
+  list: { flex: 1, borderRadius: 12 },
 });

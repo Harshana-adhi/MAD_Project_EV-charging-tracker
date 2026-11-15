@@ -1,7 +1,9 @@
 import { mockUser, mockVehicle } from '@/mocks/fixtures';
 import { getCurrentMockUser, setCurrentMockUser } from '@/mocks/currentUser';
 import type { User, Vehicle, VehicleInput } from '@/types/domain';
-import type { ProfileInput } from './api';
+import type { ChangePasswordInput, ProfileInput, ResetPasswordInput } from './api';
+
+const MOCK_RESET_CODE = '123456';
 
 let profile: User = { ...mockUser };
 let vehicles: Vehicle[] = [mockVehicle];
@@ -43,5 +45,20 @@ export async function updateVehicle(id: string, input: Partial<VehicleInput>): P
 export async function deleteVehicle(id: string): Promise<{ ok: true }> {
   if (!vehicles.some((vehicle) => vehicle.id === id)) throw new Error('NOT_FOUND');
   vehicles = vehicles.filter((vehicle) => vehicle.id !== id);
+  return { ok: true };
+}
+
+export async function changePassword(input: ChangePasswordInput): Promise<{ ok: true }> {
+  if (input.currentPassword === input.newPassword) throw new Error('VALIDATION_ERROR');
+  return { ok: true };
+}
+
+// In mock mode the emailed code is always 123456.
+export async function requestPasswordReset(email: string): Promise<{ resetToken: string }> {
+  return { resetToken: `mock-reset-${email}` };
+}
+
+export async function resetPassword(input: ResetPasswordInput): Promise<{ ok: true }> {
+  if (input.otp !== MOCK_RESET_CODE) throw new Error('INVALID_CODE');
   return { ok: true };
 }
