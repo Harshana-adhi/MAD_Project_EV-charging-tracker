@@ -1,59 +1,109 @@
-import type { Session } from '@prisma/client';
-import { prisma, withTx, toNumber } from '../../core/db';
+import { Prisma, type Session as DbSession } from '@prisma/client';
+import { prisma, toNumber, withTx } from '../../core/db';
 import { AppError } from '../../core/errors';
 import { credit } from '../../core/credit.service';
-import { broadcast, emitToUser } from '../../core/socket';
 import { notify } from '../../core/notify.service';
-import type { StartSessionInput, StopSessionInput } from './sessions.schema';
+import { broadcast, emitToUser } from '../../core/socket';
+import type { AuthUser } from '../../core/auth.middleware';
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+const sessionInclude = {
+  charger: true,
+  station: true,
+  customer: true,
+  review: true,
+} satisfies Prisma.SessionInclude;
+
+type SessionDetails = Prisma.SessionGetPayload<{ include: typeof sessionInclude }>;
+
+export function calculateCost(kwh: number, ratePerKwh: number, spendingLimit: number): number {
+  const energyHundredths = Math.round(kwh * 100);
+  const rateCents = Math.round(ratePerKwh * 100);
+  const limitCents = Math.round(spendingLimit * 100);
+  return Math.min(Math.round((energyHundredths * rateCents) / 100), limitCents) / 100;
+}
+
+function plainSession(session: DbSession) {
+  return {
+    id: session.id,
+    customerId: session.customerId,
+    chargerId: session.chargerId,
+    stationId: session.stationId,
+    spendingLimit: toNumber(session.spendingLimit)!,
+    kwh: toNumber(session.kwh),
+    cost: toNumber(session.cost),
+    commission: toNumber(session.commission),
+    status: session.status,
+    disputeReason: session.disputeReason,
+    startedAt: session.startedAt.toISOString(),
+    endedAt: session.endedAt?.toISOString() ?? null,
+  };
+}
+
+function withNames(session: SessionDetails) {
+  return {
+    ...plainSession(session),
+    stationName: session.station.name,
+    chargerLabel: session.charger.label,
+    connector: session.charger.connector,
+    powerKw: toNumber(session.charger.powerKw)!,
+    ratePerKwh: toNumber(session.charger.ratePerKwh)!,
+    customerName: session.customer.fullName,
+    hasReview: session.review !== null,
+  };
+}
+
+function publishStatus(session: DbSession, ownerId: string, status: 'busy' | 'available') {
+  broadcast('charger:status', { chargerId: session.chargerId, stationId: session.stationId, status });
+  const payload = plainSession(session);
+  emitToUser(session.customerId, 'session:updated', payload);
+  emitToUser(ownerId, 'session:updated', payload);
 }
 
 function formatLkr(amount: number): string {
   return `LKR ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 }
 
-function toSession(session: Session) {
+export async function getChargerByQr(qrToken: string, customerId: string) {
+  const charger = await prisma.charger.findUnique({ where: { qrToken }, include: { station: true } });
+  if (!charger) throw new AppError('CHARGER_NOT_FOUND', 404);
+  if (charger.station.status !== 'approved') throw new AppError('STATION_NOT_APPROVED', 409);
+  const wallet = await credit.getWallet(customerId);
   return {
-    id: session.id,
-    customerId: session.customerId,
-    chargerId: session.chargerId,
-    stationId: session.stationId,
-    spendingLimit: toNumber(session.spendingLimit),
-    kwh: toNumber(session.kwh),
-    cost: toNumber(session.cost),
-    commission: toNumber(session.commission),
-    status: session.status,
-    disputeReason: session.disputeReason,
-    startedAt: session.startedAt,
-    endedAt: session.endedAt,
+    charger: {
+      id: charger.id,
+      stationId: charger.stationId,
+      label: charger.label,
+      connector: charger.connector,
+      powerKw: toNumber(charger.powerKw)!,
+      ratePerKwh: toNumber(charger.ratePerKwh)!,
+      status: charger.status,
+      qrToken: charger.qrToken,
+    },
+    station: { id: charger.station.id, name: charger.station.name, address: charger.station.address },
+    available: wallet.available,
   };
 }
 
-async function findActiveSessionForCustomer(customerId: string, sessionId: string) {
-  const session = await prisma.session.findUnique({ where: { id: sessionId } });
-  if (!session || session.customerId !== customerId) throw new AppError('NOT_FOUND', 404);
-  if (session.status !== 'active') throw new AppError('SESSION_NOT_ACTIVE', 409);
-  return session;
-}
+export async function startSession(customerId: string, input: { qrToken: string; spendingLimit: number }) {
+  const { session, ownerId } = await withTx(async (tx) => {
+    // These locks prevent concurrent starts by one customer or on one charger.
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${customerId}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM chargers WHERE qr_token = ${input.qrToken} FOR UPDATE`;
+    const charger = await tx.charger.findUnique({
+      where: { qrToken: input.qrToken },
+      include: { station: true },
+    });
+    if (!charger) throw new AppError('CHARGER_NOT_FOUND', 404);
+    if (charger.station.status !== 'approved') throw new AppError('STATION_NOT_APPROVED', 409);
+    if (charger.status === 'offline') throw new AppError('CHARGER_OFFLINE', 409);
+    if (charger.status === 'busy') throw new AppError('CHARGER_BUSY', 409);
+    const active = await tx.session.findFirst({
+      where: { customerId, status: 'active' },
+      select: { id: true },
+    });
+    if (active) throw new AppError('ACTIVE_SESSION_EXISTS', 409);
 
-export async function startSession(customerId: string, input: StartSessionInput) {
-  const charger = await prisma.charger.findUnique({
-    where: { qrToken: input.qrToken },
-    include: { station: true },
-  });
-  if (!charger) throw new AppError('NOT_FOUND', 404, 'Charger not found');
-  if (charger.station.status !== 'approved') throw new AppError('NOT_ALLOWED', 403, 'Station not available');
-  if (charger.status !== 'available') throw new AppError('CHARGER_BUSY', 409, 'Charger is not available');
-
-  const existing = await prisma.session.findFirst({
-    where: { customerId, status: 'active' },
-  });
-  if (existing) throw new AppError('SESSION_ACTIVE', 409, 'You already have an active charging session');
-
-  const session = await withTx(async (tx) => {
-    const created = await tx.session.create({
+    const session = await tx.session.create({
       data: {
         customerId,
         chargerId: charger.id,
@@ -62,122 +112,139 @@ export async function startSession(customerId: string, input: StartSessionInput)
         status: 'active',
       },
     });
-    await tx.charger.update({ where: { id: charger.id }, data: { status: 'busy' } });
     await credit.hold(tx, {
       userId: customerId,
       amount: input.spendingLimit,
       refType: 'session',
-      refId: created.id,
+      refId: session.id,
     });
-    return created;
+    await tx.charger.update({ where: { id: charger.id }, data: { status: 'busy' } });
+    return { session, ownerId: charger.station.ownerId };
   });
 
-  broadcast('charger:status', { chargerId: charger.id, status: 'busy' });
-  await credit.emitWalletUpdates([customerId]);
-
-  return toSession(session);
+  publishStatus(session, ownerId, 'busy');
+  await Promise.allSettled([credit.emitWalletUpdates([customerId])]);
+  return plainSession(session);
 }
 
-export async function stopSession(customerId: string, sessionId: string, input: StopSessionInput) {
-  const session = await findActiveSessionForCustomer(customerId, sessionId);
-  const charger = await prisma.charger.findUniqueOrThrow({
-    where: { id: session.chargerId },
-    include: { station: true },
-  });
-  const spendingLimit = toNumber(session.spendingLimit) as number;
-  const rate = toNumber(charger.ratePerKwh) as number;
-  const kwh = round2(input.kwh);
-  const cost = Math.min(round2(kwh * rate), spendingLimit);
+export async function endSession(id: string, customerId: string, kwh: number) {
+  const { session, ownerId } = await withTx(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id}::uuid FOR UPDATE`;
+    const current = await tx.session.findUnique({
+      where: { id },
+      include: { charger: true, station: true },
+    });
+    if (!current) throw new AppError('SESSION_NOT_FOUND', 404);
+    if (current.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
+    if (current.status !== 'active') throw new AppError('SESSION_NOT_ACTIVE', 409);
 
-  const { updated, commission } = await withTx(async (tx) => {
+    const cost = calculateCost(
+      kwh,
+      current.charger.ratePerKwh.toNumber(),
+      current.spendingLimit.toNumber(),
+    );
     const { commission } = await credit.settleSession(tx, {
-      sessionId,
+      sessionId: id,
       customerId,
-      ownerId: charger.station.ownerId,
-      heldAmount: spendingLimit,
+      ownerId: current.station.ownerId,
+      heldAmount: current.spendingLimit.toNumber(),
       cost,
     });
-    const updated = await tx.session.update({
-      where: { id: sessionId },
-      data: { kwh, cost, commission, status: 'completed', endedAt: new Date() },
+    const session = await tx.session.update({
+      where: { id },
+      data: { status: 'completed', kwh, cost, commission, endedAt: new Date() },
     });
-    await tx.charger.update({ where: { id: charger.id }, data: { status: 'available' } });
-    return { updated, commission };
+    await tx.charger.update({ where: { id: current.chargerId }, data: { status: 'available' } });
+    return { session, ownerId: current.station.ownerId, stationName: current.station.name, chargerLabel: current.charger.label };
   });
 
-  broadcast('charger:status', { chargerId: charger.id, status: 'available' });
-  await credit.emitWalletUpdates([customerId, charger.station.ownerId]);
-  emitToUser(customerId, 'session:updated', toSession(updated));
-  emitToUser(charger.station.ownerId, 'session:updated', toSession(updated));
-
-  const ownerEarning = round2(cost - commission);
-  await notify({
-    userId: customerId,
-    title: 'Charging session invoice',
-    body:
-      `${charger.station.name} – ${charger.label}\n` +
-      `Energy: ${kwh.toFixed(2)} kWh at ${formatLkr(rate)}/kWh\n` +
-      `Total charged: ${formatLkr(cost)}`,
-    type: 'session_invoice',
-    refId: sessionId,
-    email: true,
-  });
-  await notify({
-    userId: charger.station.ownerId,
-    title: 'You earned from a charging session',
-    body:
-      `${charger.station.name} – ${charger.label}\n` +
-      `Session total: ${formatLkr(cost)} (platform fee ${formatLkr(commission)})\n` +
-      `Added to your wallet: ${formatLkr(ownerEarning)}`,
-    type: 'session_earning',
-    refId: sessionId,
-    email: true,
-  });
-
-  return toSession(updated);
+  publishStatus(session, ownerId, 'available');
+  const cost = session.cost!.toNumber();
+  const commission = session.commission!.toNumber();
+  await Promise.allSettled([
+    credit.emitWalletUpdates([customerId, ownerId]),
+    notify({
+      userId: customerId,
+      title: 'Charging session invoice',
+      body: `${result.stationName} – ${result.chargerLabel}\nEnergy: ${kwh.toFixed(2)} kWh\nTotal charged: ${formatLkr(cost)}`,
+      type: 'session_completed',
+      refId: id,
+      email: true,
+    }),
+    notify({
+      userId: ownerId,
+      title: 'You earned from a charging session',
+      body: `${result.stationName} – ${result.chargerLabel}\nSession total: ${formatLkr(cost)} (platform fee ${formatLkr(commission)})\nAdded to your wallet: ${formatLkr(cost - commission)}`,
+      type: 'session_completed',
+      refId: id,
+      email: true,
+    }),
+  ]);
+  return plainSession(session);
 }
 
-export async function cancelSession(customerId: string, sessionId: string) {
-  const session = await findActiveSessionForCustomer(customerId, sessionId);
-  const spendingLimit = toNumber(session.spendingLimit) as number;
+export async function cancelSession(id: string, customerId: string) {
+  const { session, ownerId } = await withTx(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id}::uuid FOR UPDATE`;
+    const current = await tx.session.findUnique({ where: { id }, include: { station: true } });
+    if (!current) throw new AppError('SESSION_NOT_FOUND', 404);
+    if (current.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
+    if (current.status !== 'active') throw new AppError('SESSION_NOT_ACTIVE', 409);
 
-  const updated = await withTx(async (tx) => {
     await credit.release(tx, {
       userId: customerId,
-      amount: spendingLimit,
+      amount: current.spendingLimit.toNumber(),
       refType: 'session',
-      refId: sessionId,
+      refId: id,
     });
-    const updated = await tx.session.update({
-      where: { id: sessionId },
+    const session = await tx.session.update({
+      where: { id },
       data: { status: 'cancelled', endedAt: new Date() },
     });
-    await tx.charger.update({ where: { id: session.chargerId }, data: { status: 'available' } });
-    return updated;
+    await tx.charger.update({ where: { id: current.chargerId }, data: { status: 'available' } });
+    return { session, ownerId: current.station.ownerId };
   });
 
-  broadcast('charger:status', { chargerId: session.chargerId, status: 'available' });
-  await credit.emitWalletUpdates([customerId]);
-  return toSession(updated);
+  publishStatus(session, ownerId, 'available');
+  await Promise.allSettled([
+    credit.emitWalletUpdates([customerId]),
+    notify({
+      userId: customerId,
+      title: 'Session cancelled',
+      body: 'Session cancelled – credits returned',
+      type: 'session_cancelled',
+      refId: id,
+    }),
+  ]);
+  return plainSession(session);
 }
 
-export async function getSession(userId: string, role: string, sessionId: string) {
-  const session = await prisma.session.findUnique({
-    where: { id: sessionId },
-    include: { station: { select: { ownerId: true } } },
+export async function getActiveSession(customerId: string) {
+  const session = await prisma.session.findFirst({
+    where: { customerId, status: 'active' },
+    include: sessionInclude,
+    orderBy: { startedAt: 'desc' },
   });
-  if (!session) throw new AppError('NOT_FOUND', 404);
-  const allowed =
-    session.customerId === userId || session.station.ownerId === userId || role === 'admin';
-  if (!allowed) throw new AppError('NOT_ALLOWED', 403);
-  return toSession(session);
+  return session ? withNames(session) : null;
 }
 
 export async function listMySessions(customerId: string) {
   const sessions = await prisma.session.findMany({
     where: { customerId },
+    include: sessionInclude,
     orderBy: { startedAt: 'desc' },
-    take: 50,
+    take: 100,
   });
-  return sessions.map(toSession);
+  return sessions.map(withNames);
+}
+
+export async function getSession(id: string, requester: AuthUser) {
+  const session = await prisma.session.findUnique({ where: { id }, include: sessionInclude });
+  if (!session) throw new AppError('SESSION_NOT_FOUND', 404);
+  const allowed =
+    session.customerId === requester.id ||
+    session.station.ownerId === requester.id ||
+    requester.role === 'admin';
+  if (!allowed) throw new AppError('NOT_ALLOWED', 403);
+  return withNames(session);
 }

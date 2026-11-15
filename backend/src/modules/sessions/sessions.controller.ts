@@ -1,27 +1,31 @@
 import type { Request, Response } from 'express';
-import * as sessionsService from './sessions.service';
+import * as service from './sessions.service';
 
-export async function startSession(req: Request, res: Response) {
-  const session = await sessionsService.startSession(req.user!.id, req.body);
+export async function lookup(req: Request, res: Response) {
+  res.json({ data: await service.getChargerByQr(req.params.qrToken, req.user!.id) });
+}
+
+export async function start(req: Request, res: Response) {
+  const session = await service.startSession(req.user!.id, req.body);
   res.status(201).json({ data: session });
 }
 
-export async function stopSession(req: Request, res: Response) {
-  const session = await sessionsService.stopSession(req.user!.id, req.params.id, req.body);
-  res.json({ data: session });
+export async function end(req: Request, res: Response) {
+  res.json({ data: await service.endSession(req.params.id, req.user!.id, req.body.kwh) });
 }
 
-export async function cancelSession(req: Request, res: Response) {
-  const session = await sessionsService.cancelSession(req.user!.id, req.params.id);
-  res.json({ data: session });
+export async function cancel(req: Request, res: Response) {
+  res.json({ data: await service.cancelSession(req.params.id, req.user!.id) });
 }
 
-export async function getSession(req: Request, res: Response) {
-  const session = await sessionsService.getSession(req.user!.id, req.user!.role, req.params.id);
-  res.json({ data: session });
+export async function active(req: Request, res: Response) {
+  res.json({ data: await service.getActiveSession(req.user!.id) });
 }
 
-export async function listMySessions(req: Request, res: Response) {
-  const sessions = await sessionsService.listMySessions(req.user!.id);
-  res.json({ data: sessions });
+export async function list(req: Request, res: Response) {
+  res.json({ data: await service.listMySessions(req.user!.id) });
+}
+
+export async function get(req: Request, res: Response) {
+  res.json({ data: await service.getSession(req.params.id, req.user!) });
 }
