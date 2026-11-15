@@ -6,5 +6,12 @@ export async function getMyWallet(): Promise<Wallet> {
 }
 
 export async function topUpWithCard(input: { amount: number; cardNumber: string }): Promise<Wallet> {
-  return { ...mockWallet, balance: mockWallet.balance + input.amount, available: mockWallet.available + input.amount };
+  const card = input.cardNumber.replace(/\s/g, '');
+  if (card === '4000000000000002') throw new Error('CARD_DECLINED');
+  if (card !== '4242424242424242') throw new Error('VALIDATION_ERROR');
+  return {
+    ...mockWallet,
+    balance: mockWallet.balance + input.amount,
+    available: mockWallet.available + input.amount,
+  };
 }
