@@ -7,7 +7,7 @@ import { router as transactionsRouter } from './modules/transactions/transaction
 import { router as topupsRouter } from './modules/topups/topups.routes';
 import { router as adminRouter } from './modules/admin/admin.routes';
 import { router as stationsRouter } from './modules/stations/stations.routes';
-import { router as reviewsRouter } from './modules/reviews/reviews.routes';
+import { router as reviewsRouter, stationReviewsRouter } from './modules/reviews/reviews.routes';
 import { router as favouritesRouter } from './modules/favourites/favourites.routes';
 import { router as notificationsRouter } from './modules/notifications/notifications.routes';
 import { router as ownerRouter } from './modules/owner/owner.routes';
@@ -25,6 +25,7 @@ routes.use('/vehicles', vehiclesRouter);
 routes.use('/transactions', transactionsRouter);
 routes.use('/topups', topupsRouter);
 routes.use('/admin', adminRouter);
+routes.use('/stations', stationReviewsRouter);
 routes.use('/stations', stationsRouter);
 routes.use('/reviews', reviewsRouter);
 routes.use('/favourites', favouritesRouter);
