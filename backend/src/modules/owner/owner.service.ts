@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomBytes } from 'crypto';
 import type { Charger, Session, Station } from '@prisma/client';
 import { prisma, toNumber } from '../../core/db';
 import { AppError } from '../../core/errors';
@@ -84,7 +84,7 @@ export async function createStation(ownerId: string, ownerName: string, input: C
           connector: charger.connector,
           powerKw: charger.powerKw,
           ratePerKwh: charger.ratePerKwh,
-          qrToken: randomUUID(),
+          qrToken: randomBytes(8).toString('hex'),
         })),
       },
     },
@@ -129,7 +129,7 @@ export async function addCharger(ownerId: string, stationId: string, input: AddC
       connector: input.connector,
       powerKw: input.powerKw,
       ratePerKwh: input.ratePerKwh,
-      qrToken: randomUUID(),
+      qrToken: randomBytes(8).toString('hex'),
     },
   });
   return toCharger(charger);

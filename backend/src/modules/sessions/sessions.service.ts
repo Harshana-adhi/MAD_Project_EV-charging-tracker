@@ -87,7 +87,7 @@ export async function getChargerByQr(qrToken: string, customerId: string) {
 export async function startSession(customerId: string, input: { qrToken: string; spendingLimit: number }) {
   const { session, ownerId } = await withTx(async (tx) => {
     // These locks prevent concurrent starts by one customer or on one charger.
-    await tx.$queryRaw`SELECT id FROM users WHERE id = ${customerId}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${customerId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM chargers WHERE qr_token = ${input.qrToken} FOR UPDATE`;
     const charger = await tx.charger.findUnique({
       where: { qrToken: input.qrToken },
@@ -128,8 +128,8 @@ export async function startSession(customerId: string, input: { qrToken: string;
 }
 
 export async function endSession(id: string, customerId: string, kwh: number) {
-  const { session, ownerId } = await withTx(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id}::uuid FOR UPDATE`;
+  const { session, ownerId, stationName, chargerLabel } = await withTx(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id} FOR UPDATE`;
     const current = await tx.session.findUnique({
       where: { id },
       include: { charger: true, station: true },
@@ -166,7 +166,7 @@ export async function endSession(id: string, customerId: string, kwh: number) {
     notify({
       userId: customerId,
       title: 'Charging session invoice',
-      body: `${result.stationName} – ${result.chargerLabel}\nEnergy: ${kwh.toFixed(2)} kWh\nTotal charged: ${formatLkr(cost)}`,
+      body: `${stationName} – ${chargerLabel}\nEnergy: ${kwh.toFixed(2)} kWh\nTotal charged: ${formatLkr(cost)}`,
       type: 'session_completed',
       refId: id,
       email: true,
@@ -174,7 +174,7 @@ export async function endSession(id: string, customerId: string, kwh: number) {
     notify({
       userId: ownerId,
       title: 'You earned from a charging session',
-      body: `${result.stationName} – ${result.chargerLabel}\nSession total: ${formatLkr(cost)} (platform fee ${formatLkr(commission)})\nAdded to your wallet: ${formatLkr(cost - commission)}`,
+      body: `${stationName} – ${chargerLabel}\nSession total: ${formatLkr(cost)} (platform fee ${formatLkr(commission)})\nAdded to your wallet: ${formatLkr(cost - commission)}`,
       type: 'session_completed',
       refId: id,
       email: true,
@@ -185,7 +185,7 @@ export async function endSession(id: string, customerId: string, kwh: number) {
 
 export async function cancelSession(id: string, customerId: string) {
   const { session, ownerId } = await withTx(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id} FOR UPDATE`;
     const current = await tx.session.findUnique({ where: { id }, include: { station: true } });
     if (!current) throw new AppError('SESSION_NOT_FOUND', 404);
     if (current.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
