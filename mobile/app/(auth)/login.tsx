@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, router } from 'expo-router';
 import { Text } from 'react-native-paper';
-import { Screen, AppTextInput, AppButton, ErrorView } from '@/components';
+import { Screen, AppTextInput, AppButton, ErrorView, Logo } from '@/components';
 import { useAuth } from '@/features/auth';
 import { USE_MOCKS } from '@/lib/config';
 import { spacing } from '@/lib/theme';
@@ -39,6 +39,9 @@ export default function LoginScreen() {
   return (
     <Screen scroll>
       <View style={{ gap: spacing.md }}>
+        <View style={{ alignItems: 'center', marginBottom: spacing.sm }}>
+          <Logo size={48} />
+        </View>
         <Text variant="headlineSmall">Log in</Text>
         <Controller
           control={control}
