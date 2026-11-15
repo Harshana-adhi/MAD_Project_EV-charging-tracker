@@ -1,12 +1,14 @@
 import { Redirect, Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/theme';
-import { ThemeToggleButton } from '@/components';
+import { LoadingView, ThemeToggleButton } from '@/components';
 import { useAuth } from '@/features/auth';
 
 export default function CustomerTabsLayout() {
   const theme = useAppTheme();
-  const { role } = useAuth();
+  const { role, loading } = useAuth();
+
+  if (loading) return <LoadingView />;
 
   // Guests and customers use these tabs; owners and admins are sent back to their own home.
   if (role === 'owner') return <Redirect href="/(owner)/dashboard" />;
