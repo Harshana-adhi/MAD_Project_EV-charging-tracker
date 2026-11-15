@@ -1,4 +1,6 @@
-import { mockCharger, mockStationDetail, mockUser, mockWallet } from '@/mocks/fixtures';
+import { getCurrentMockUser } from '@/mocks/currentUser';
+import { mockCharger, mockStationDetail, mockWallet } from '@/mocks/fixtures';
+import { hasMockReview } from '@/mocks/reviews';
 import type { ChargerLookup, Session, SessionWithNames } from '@/types/domain';
 
 const sessions: SessionWithNames[] = [];
@@ -22,9 +24,10 @@ export async function startSession(input: { qrToken: string; spendingLimit: numb
   if (chargerBusy) throw new Error('CHARGER_BUSY');
   if (sessions.some((session) => session.status === 'active')) throw new Error('ACTIVE_SESSION_EXISTS');
   if (mockWallet.available < input.spendingLimit) throw new Error('INSUFFICIENT_BALANCE');
+  const customer = getCurrentMockUser();
   const session: SessionWithNames = {
     id: `mock-session-${Date.now()}`,
-    customerId: mockUser.id,
+    customerId: customer.id,
     chargerId: mockCharger.id,
     stationId: mockStationDetail.id,
     spendingLimit: input.spendingLimit,
@@ -40,7 +43,7 @@ export async function startSession(input: { qrToken: string; spendingLimit: numb
     connector: mockCharger.connector,
     powerKw: mockCharger.powerKw,
     ratePerKwh: mockCharger.ratePerKwh,
-    customerName: mockUser.fullName,
+    customerName: customer.fullName,
     hasReview: false,
   };
   sessions.unshift(session);
@@ -84,11 +87,11 @@ export async function getActiveSession(): Promise<SessionWithNames | null> {
 }
 
 export async function listMySessions(): Promise<SessionWithNames[]> {
-  return [...sessions];
+  return sessions.map((session) => ({ ...session, hasReview: hasMockReview(session.id) }));
 }
 
 export async function getSession(id: string): Promise<SessionWithNames> {
   const session = sessions.find((item) => item.id === id);
   if (!session) throw new Error('SESSION_NOT_FOUND');
-  return { ...session };
+  return { ...session, hasReview: hasMockReview(id) };
 }
