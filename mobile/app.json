@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "EV Charge Tracker",
+    "name": "GreenCharge",
     "slug": "ev-charge-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -36,15 +36,15 @@
       "expo-secure-store",
       [
         "expo-camera",
-        { "cameraPermission": "Allow EV Charge Tracker to use the camera to scan charger QR codes." }
+        { "cameraPermission": "Allow GreenCharge to use the camera to scan charger QR codes." }
       ],
       [
         "expo-location",
-        { "locationWhenInUsePermission": "Allow EV Charge Tracker to use your location to find nearby chargers." }
+        { "locationWhenInUsePermission": "Allow GreenCharge to use your location to find nearby chargers." }
       ],
       [
         "expo-image-picker",
-        { "photosPermission": "Allow EV Charge Tracker to access your photos to upload station photos or bank slips." }
+        { "photosPermission": "Allow GreenCharge to access your photos to upload station photos or bank slips." }
       ]
     ],
     "experiments": {

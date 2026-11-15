@@ -47,6 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearSession();
     });
 
+    // Keeps the branded preloader on screen briefly even when session resolution is instant.
+    const MIN_PRELOADER_MS = 900;
+    const startedAt = Date.now();
+
     (async () => {
       const storedToken = await getToken();
       if (storedToken) {
@@ -61,6 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           await clearSession();
         }
+      }
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_PRELOADER_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_PRELOADER_MS - elapsed));
       }
       setLoading(false);
     })();
