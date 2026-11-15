@@ -12,6 +12,7 @@ import { router as favouritesRouter } from './modules/favourites/favourites.rout
 import { router as notificationsRouter } from './modules/notifications/notifications.routes';
 import { router as ownerRouter } from './modules/owner/owner.routes';
 import { router as sessionsRouter } from './modules/sessions/sessions.routes';
+import { router as reportsRouter } from './modules/reports/reports.routes';
 
 export const routes = Router();
 
@@ -31,3 +32,4 @@ routes.use('/favourites', favouritesRouter);
 routes.use('/notifications', notificationsRouter);
 routes.use('/owner', ownerRouter);
 routes.use('/sessions', sessionsRouter);
+routes.use('/reports', reportsRouter);
