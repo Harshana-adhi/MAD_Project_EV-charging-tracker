@@ -1,11 +1,41 @@
 import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, router } from 'expo-router';
-import { SegmentedButtons, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { Screen, AppTextInput, AppButton, ErrorView } from '@/components';
 import { useAuth } from '@/features/auth';
+import { useAppTheme } from '@/lib/theme';
+
+type Role = 'customer' | 'owner';
+
+function RoleToggle({ value, onChange }: { value: Role; onChange: (role: Role) => void }) {
+  const theme = useAppTheme();
+
+  return (
+    <View style={[styles.toggle, { borderColor: theme.colors.outlineVariant }]}>
+      {(['customer', 'owner'] as const).map((role) => {
+        const selected = value === role;
+        return (
+          <Pressable
+            key={role}
+            onPress={() => onChange(role)}
+            style={[styles.toggleOption, selected && { backgroundColor: theme.colors.secondaryContainer }]}
+          >
+            <Text
+              variant="labelLarge"
+              style={{ color: selected ? theme.colors.onSecondaryContainer : theme.colors.onSurfaceVariant }}
+            >
+              {role === 'customer' ? 'Customer' : 'Station Owner'}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 const schema = z.object({
   email: z.string().trim().toLowerCase().email('Enter a valid email'),
@@ -83,16 +113,7 @@ export default function RegisterScreen() {
       <Controller
         control={control}
         name="role"
-        render={({ field }) => (
-          <SegmentedButtons
-            value={field.value}
-            onValueChange={field.onChange}
-            buttons={[
-              { value: 'customer', label: 'Customer' },
-              { value: 'owner', label: 'Station Owner' },
-            ]}
-          />
-        )}
+        render={({ field }) => <RoleToggle value={field.value} onChange={field.onChange} />}
       />
       {submitError ? <ErrorView error={submitError} /> : null}
       <AppButton label="Create account" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
@@ -100,3 +121,17 @@ export default function RegisterScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  toggle: {
+    flexDirection: 'row',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  toggleOption: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+});
