@@ -22,6 +22,12 @@ export const reviewSchema = z
 
 export type ReviewInput = z.infer<typeof reviewSchema>;
 
+export const withdrawalStatusQuerySchema = z.object({
+  status: z.enum(['pending', 'paid', 'rejected']).default('pending'),
+});
+
+export const processWithdrawalSchema = z.object({ approve: z.boolean() });
+
 export const usersQuerySchema = z.object({
   search: z.string().trim().max(60).optional(),
 });

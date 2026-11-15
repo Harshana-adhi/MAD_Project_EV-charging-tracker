@@ -5,11 +5,13 @@ import { asyncHandler } from '../../core/errors';
 import {
   blockUserSchema,
   idParamsSchema,
+  processWithdrawalSchema,
   resetPasswordSchema,
   reviewSchema,
   stationStatusQuerySchema,
   topupStatusQuerySchema,
   usersQuerySchema,
+  withdrawalStatusQuerySchema,
 } from './admin.schema';
 import * as controller from './admin.controller';
 
@@ -39,6 +41,17 @@ router.post(
   '/topups/:id/review',
   validate({ params: idParamsSchema, body: reviewSchema }),
   asyncHandler(controller.reviewTopup),
+);
+
+router.get(
+  '/withdrawals',
+  validate({ query: withdrawalStatusQuerySchema }),
+  asyncHandler(controller.listWithdrawals),
+);
+router.post(
+  '/withdrawals/:id/process',
+  validate({ params: idParamsSchema, body: processWithdrawalSchema }),
+  asyncHandler(controller.processWithdrawal),
 );
 
 router.get('/users', validate({ query: usersQuerySchema }), asyncHandler(controller.listUsers));

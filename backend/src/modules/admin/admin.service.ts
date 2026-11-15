@@ -1,4 +1,12 @@
-import type { RequestStatus, Station, StationStatus, TopupRequest, User } from '@prisma/client';
+import type {
+  RequestStatus,
+  Station,
+  StationStatus,
+  TopupRequest,
+  User,
+  Withdrawal,
+  WithdrawalStatus,
+} from '@prisma/client';
 import { prisma, withTx } from '../../core/db';
 import { AppError } from '../../core/errors';
 import type { AuthUser } from '../../core/auth.middleware';
@@ -154,6 +162,68 @@ export async function reviewTopup(admin: AuthUser, topupId: string, input: Revie
   });
 
   return toTopup(updated);
+}
+
+function toWithdrawal(withdrawal: Withdrawal) {
+  return {
+    id: withdrawal.id,
+    amount: withdrawal.amount.toNumber(),
+    bankNote: withdrawal.bankNote,
+    status: withdrawal.status,
+    createdAt: withdrawal.createdAt,
+  };
+}
+
+export async function listWithdrawals(status: WithdrawalStatus) {
+  const withdrawals = await prisma.withdrawal.findMany({
+    where: { status },
+    include: { owner: { select: { fullName: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  return withdrawals.map((withdrawal) => ({
+    ...toWithdrawal(withdrawal),
+    ownerName: withdrawal.owner.fullName,
+  }));
+}
+
+export async function processWithdrawal(admin: AuthUser, withdrawalId: string, approve: boolean) {
+  const withdrawal = await prisma.withdrawal.findUnique({ where: { id: withdrawalId } });
+  if (!withdrawal) throw new AppError('NOT_FOUND', 404);
+  const amount = withdrawal.amount.toNumber();
+
+  const updated = await withTx(async (tx) => {
+    // Updating only while the request is still pending stops it being paid or released twice.
+    const result = await tx.withdrawal.updateMany({
+      where: { id: withdrawalId, status: 'pending' },
+      data: { status: approve ? 'paid' : 'rejected', processedBy: admin.id },
+    });
+    if (result.count === 0) throw new AppError('ALREADY_PROCESSED', 409);
+
+    if (approve) {
+      await credit.payoutHeld(tx, { userId: withdrawal.ownerId, amount, withdrawalId });
+    } else {
+      await credit.release(tx, {
+        userId: withdrawal.ownerId,
+        amount,
+        refType: 'withdrawal',
+        refId: withdrawalId,
+      });
+    }
+    return tx.withdrawal.findUniqueOrThrow({ where: { id: withdrawalId } });
+  });
+
+  await credit.emitWalletUpdates([withdrawal.ownerId]);
+  await notify({
+    userId: withdrawal.ownerId,
+    title: approve ? 'Withdrawal paid' : 'Withdrawal rejected',
+    body: approve
+      ? `Withdrawal of ${formatLkr(amount)} paid`
+      : `Withdrawal of ${formatLkr(amount)} rejected – credits returned`,
+    type: 'withdrawal_review',
+    refId: withdrawalId,
+  });
+
+  return toWithdrawal(updated);
 }
 
 export async function listUsers(search?: string) {
