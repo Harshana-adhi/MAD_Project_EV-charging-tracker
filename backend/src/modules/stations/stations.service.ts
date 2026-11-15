@@ -74,7 +74,14 @@ export async function listStations(filters: StationFilters) {
   const stations = await prisma.station.findMany({
     where: {
       status: 'approved',
-      ...(filters.search ? { name: { contains: filters.search, mode: 'insensitive' } } : {}),
+      ...(filters.search
+        ? {
+            OR: [
+              { name: { contains: filters.search, mode: 'insensitive' } },
+              { address: { contains: filters.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
     },
     include: { chargers: true, reviews: { select: { rating: true } } },
   });
