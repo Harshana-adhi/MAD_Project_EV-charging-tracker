@@ -4,6 +4,7 @@ import { prisma, withTx } from '../../core/db';
 import { AppError } from '../../core/errors';
 import { hashPassword, checkPassword } from '../../core/password';
 import { credit } from '../../core/credit.service';
+import { sendEmailInBackground } from '../../core/email.service';
 import { config } from '../../config';
 
 function toPublicUser(user: User) {
@@ -44,6 +45,17 @@ export async function register(input: {
     });
     await credit.createWallet(tx, created.id);
     return created;
+  });
+
+  sendEmailInBackground({
+    to: user.email,
+    subject: 'Welcome to GreenCharge',
+    heading: 'Welcome to GreenCharge',
+    message:
+      `Hi ${user.fullName.split(' ')[0]},\n` +
+      (user.role === 'owner'
+        ? 'Your station owner account is ready. Add your charging station in the app – it will appear on the map after an admin approves it.'
+        : 'Your account is ready. Find a charger on the map, top up your wallet and start charging with credits.'),
   });
 
   return { token: signToken(user), user: toPublicUser(user) };

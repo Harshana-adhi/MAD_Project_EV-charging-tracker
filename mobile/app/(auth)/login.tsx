@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,6 +7,7 @@ import { Link, router } from 'expo-router';
 import { Text } from 'react-native-paper';
 import { Screen, AppTextInput, AppButton, ErrorView } from '@/components';
 import { useAuth } from '@/features/auth';
+import { spacing } from '@/lib/theme';
 
 const schema = z.object({
   email: z.string().trim().toLowerCase().email('Enter a valid email'),
@@ -35,37 +37,41 @@ export default function LoginScreen() {
 
   return (
     <Screen scroll>
-      <Text variant="headlineSmall">Log in</Text>
-      <Controller
-        control={control}
-        name="email"
-        render={({ field }) => (
-          <AppTextInput
-            label="Email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={field.value}
-            onChangeText={field.onChange}
-            error={errors.email?.message}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="password"
-        render={({ field }) => (
-          <AppTextInput
-            label="Password"
-            secureTextEntry
-            value={field.value}
-            onChangeText={field.onChange}
-            error={errors.password?.message}
-          />
-        )}
-      />
-      {submitError ? <ErrorView error={submitError} /> : null}
-      <AppButton label="Log in" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
-      <Link href="/(auth)/register">Need an account? Register</Link>
+      <View style={{ gap: spacing.md }}>
+        <Text variant="headlineSmall">Log in</Text>
+        <Controller
+          control={control}
+          name="email"
+          render={({ field }) => (
+            <AppTextInput
+              label="Email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={errors.email?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="password"
+          render={({ field }) => (
+            <AppTextInput
+              label="Password"
+              secureTextEntry
+              value={field.value}
+              onChangeText={field.onChange}
+              error={errors.password?.message}
+            />
+          )}
+        />
+        {submitError ? <ErrorView error={submitError} /> : null}
+        <AppButton label="Log in" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
+        <Link href="/(auth)/register" style={{ marginTop: spacing.sm, textAlign: 'center' }}>
+          Need an account? Register
+        </Link>
+      </View>
     </Screen>
   );
 }

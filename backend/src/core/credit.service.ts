@@ -106,7 +106,6 @@ async function settleSession(
 
   const commission = round2(input.cost * COMMISSION_RATE);
   const ownerEarning = round2(input.cost - commission);
-  const unusedHold = round2(input.heldAmount - input.cost);
 
   const customerWallet = await lockWallet(tx, input.customerId);
   const ownerWallet = await lockWallet(tx, input.ownerId);
@@ -119,10 +118,9 @@ async function settleSession(
       held: round2(customerWallet.held - input.heldAmount),
     },
   });
+  // "release" always clears the full hold here – "charge" is the separate, permanent balance deduction.
+  await writeTxn(tx, customerWallet.id, 'release', -input.heldAmount, 'session', input.sessionId);
   await writeTxn(tx, customerWallet.id, 'charge', -input.cost, 'session', input.sessionId);
-  if (unusedHold > 0) {
-    await writeTxn(tx, customerWallet.id, 'release', -unusedHold, 'session', input.sessionId);
-  }
 
   await tx.wallet.update({
     where: { id: ownerWallet.id },
@@ -148,6 +146,8 @@ async function payoutHeld(tx: Tx, input: { userId: string; amount: number; withd
       held: round2(wallet.held - input.amount),
     },
   });
+  // "release" clears the hold that was placed when the withdrawal was requested.
+  await writeTxn(tx, wallet.id, 'release', -input.amount, 'withdrawal', input.withdrawalId);
   await writeTxn(tx, wallet.id, 'withdrawal', -input.amount, 'withdrawal', input.withdrawalId);
 }
 

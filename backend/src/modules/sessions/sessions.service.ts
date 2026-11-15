@@ -4,6 +4,7 @@ import { AppError } from '../../core/errors';
 import { credit } from '../../core/credit.service';
 import { notify } from '../../core/notify.service';
 import { broadcast, emitToUser } from '../../core/socket';
+import type { AuthUser } from '../../core/auth.middleware';
 
 const sessionInclude = {
   charger: true,
@@ -56,6 +57,10 @@ function publishStatus(session: DbSession, ownerId: string, status: 'busy' | 'av
   const payload = plainSession(session);
   emitToUser(session.customerId, 'session:updated', payload);
   emitToUser(ownerId, 'session:updated', payload);
+}
+
+function formatLkr(amount: number): string {
+  return `LKR ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 }
 
 export async function getChargerByQr(qrToken: string, customerId: string) {
@@ -150,25 +155,29 @@ export async function endSession(id: string, customerId: string, kwh: number) {
       data: { status: 'completed', kwh, cost, commission, endedAt: new Date() },
     });
     await tx.charger.update({ where: { id: current.chargerId }, data: { status: 'available' } });
-    return { session, ownerId: current.station.ownerId };
+    return { session, ownerId: current.station.ownerId, stationName: current.station.name, chargerLabel: current.charger.label };
   });
 
   publishStatus(session, ownerId, 'available');
+  const cost = session.cost!.toNumber();
+  const commission = session.commission!.toNumber();
   await Promise.allSettled([
     credit.emitWalletUpdates([customerId, ownerId]),
     notify({
       userId: customerId,
-      title: 'Charging complete',
-      body: `Charging complete – LKR ${session.cost!.toNumber().toFixed(2)}`,
+      title: 'Charging session invoice',
+      body: `${result.stationName} – ${result.chargerLabel}\nEnergy: ${kwh.toFixed(2)} kWh\nTotal charged: ${formatLkr(cost)}`,
       type: 'session_completed',
       refId: id,
+      email: true,
     }),
     notify({
       userId: ownerId,
-      title: 'New charging session',
-      body: `You earned LKR ${(session.cost!.toNumber() - session.commission!.toNumber()).toFixed(2)}`,
+      title: 'You earned from a charging session',
+      body: `${result.stationName} – ${result.chargerLabel}\nSession total: ${formatLkr(cost)} (platform fee ${formatLkr(commission)})\nAdded to your wallet: ${formatLkr(cost - commission)}`,
       type: 'session_completed',
       refId: id,
+      email: true,
     }),
   ]);
   return plainSession(session);
@@ -229,9 +238,13 @@ export async function listMySessions(customerId: string) {
   return sessions.map(withNames);
 }
 
-export async function getSession(id: string, customerId: string) {
+export async function getSession(id: string, requester: AuthUser) {
   const session = await prisma.session.findUnique({ where: { id }, include: sessionInclude });
   if (!session) throw new AppError('SESSION_NOT_FOUND', 404);
-  if (session.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
+  const allowed =
+    session.customerId === requester.id ||
+    session.station.ownerId === requester.id ||
+    requester.role === 'admin';
+  if (!allowed) throw new AppError('NOT_ALLOWED', 403);
   return withNames(session);
 }

@@ -27,5 +27,5 @@ export async function list(req: Request, res: Response) {
 }
 
 export async function get(req: Request, res: Response) {
-  res.json({ data: await service.getSession(req.params.id, req.user!.id) });
+  res.json({ data: await service.getSession(req.params.id, req.user!) });
 }

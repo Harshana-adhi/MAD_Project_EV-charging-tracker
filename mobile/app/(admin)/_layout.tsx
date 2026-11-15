@@ -1,10 +1,15 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/theme';
-import { ThemeToggleButton } from '@/components';
+import { LoadingView, ThemeToggleButton } from '@/components';
+import { useAuth } from '@/features/auth';
 
 export default function AdminTabsLayout() {
   const theme = useAppTheme();
+  const { role, loading } = useAuth();
+
+  if (loading) return <LoadingView />;
+  if (role !== 'admin') return <Redirect href="/" />;
 
   return (
     <Tabs
@@ -49,6 +54,15 @@ export default function AdminTabsLayout() {
           title: 'Users',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account-group" color={color as string} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-circle" color={color as string} size={size} />
           ),
         }}
       />

@@ -1,10 +1,71 @@
+import { StyleSheet, View } from 'react-native';
+import { router, type Href } from 'expo-router';
 import { Text } from 'react-native-paper';
-import { Screen } from '@/components';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Card, ErrorView, LoadingView, Screen } from '@/components';
+import { useAuth } from '@/features/auth';
+import { useAdminCounts } from '@/features/admin/hooks';
+import { useAppTheme, spacing } from '@/lib/theme';
+import type { AdminCounts } from '@/types/domain';
+
+type CountCard = {
+  key: keyof AdminCounts;
+  label: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  route: Href;
+};
+
+const COUNT_CARDS: CountCard[] = [
+  { key: 'pendingStations', label: 'Pending stations', icon: 'shield-check', route: '/(admin)/stations' },
+  { key: 'pendingTopups', label: 'Pending top-ups', icon: 'cash-plus', route: '/(admin)/payments' },
+  {
+    key: 'pendingWithdrawals',
+    label: 'Pending withdrawals',
+    icon: 'bank-transfer',
+    route: '/(admin)/payments',
+  },
+  { key: 'users', label: 'Users', icon: 'account-group', route: '/(admin)/users' },
+];
 
 export default function AdminDashboardScreen() {
+  const theme = useAppTheme();
+  const { user } = useAuth();
+  const { data: counts, isLoading, isError, error, refetch, isRefetching } = useAdminCounts();
+
+  if (isLoading) return <LoadingView />;
+  if (isError || !counts) return <ErrorView error={error} onRetry={refetch} />;
+
+  const firstName = user?.fullName.split(' ')[0] ?? 'Admin';
+
   return (
-    <Screen>
-      <Text variant="headlineSmall">Admin Dashboard</Text>
+    <Screen scroll refreshing={isRefetching} onRefresh={refetch}>
+      <Text variant="headlineSmall">Hello, {firstName}</Text>
+      <Text variant="bodyMedium" style={[styles.intro, { color: theme.colors.onSurfaceVariant }]}>
+        Here is what needs your attention.
+      </Text>
+
+      <View style={styles.grid}>
+        {COUNT_CARDS.map((card) => (
+          <View key={card.key} style={styles.cell}>
+            <Card onPress={() => router.navigate(card.route)}>
+              <MaterialCommunityIcons name={card.icon} size={24} color={theme.colors.primary} />
+              <Text variant="titleMedium" style={styles.count}>
+                {counts[card.key]}
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                {card.label}
+              </Text>
+            </Card>
+          </View>
+        ))}
+      </View>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  intro: { marginBottom: spacing.xl },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  cell: { width: '48%' },
+  count: { marginTop: spacing.sm, fontVariant: ['tabular-nums'] },
+});
