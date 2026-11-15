@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth';
 import type { VehicleInput } from '@/types/domain';
-import type { ProfileInput } from './api';
+import type { ChangePasswordInput, ProfileInput, ResetPasswordInput } from './api';
 import { api } from './index';
 
 // Keys include the user id so one account never sees another account's cached data.
@@ -58,5 +58,23 @@ export function useDeleteVehicle() {
   return useMutation({
     mutationFn: (id: string) => api.deleteVehicle(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (input: ChangePasswordInput) => api.changePassword(input),
+  });
+}
+
+export function useRequestPasswordReset() {
+  return useMutation({
+    mutationFn: (email: string) => api.requestPasswordReset(email),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (input: ResetPasswordInput) => api.resetPassword(input),
   });
 }
