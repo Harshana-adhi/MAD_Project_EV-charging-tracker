@@ -1,9 +1,20 @@
 import type { Request, Response } from 'express';
+import type { StationStatus } from '@prisma/client';
 import * as adminService from './admin.service';
 
 export async function getCounts(req: Request, res: Response) {
   const counts = await adminService.getCounts();
   res.json({ data: counts });
+}
+
+export async function listStationsByStatus(req: Request, res: Response) {
+  const stations = await adminService.listStationsByStatus(req.query.status as StationStatus);
+  res.json({ data: stations });
+}
+
+export async function reviewStation(req: Request, res: Response) {
+  const station = await adminService.reviewStation(req.params.id, req.body);
+  res.json({ data: station });
 }
 
 export async function listUsers(req: Request, res: Response) {
