@@ -39,7 +39,7 @@ function EditProfileForm({ profile }: { profile: User }) {
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { fullName: profile.fullName, phone: profile.phone ?? '' },
@@ -90,7 +90,12 @@ function EditProfileForm({ profile }: { profile: User }) {
         )}
       />
       {submitError ? <HelperText type="error">{errorMessage(submitError)}</HelperText> : null}
-      <AppButton label="Save" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
+      <AppButton
+        label="Save"
+        onPress={handleSubmit(onSubmit)}
+        loading={isSubmitting}
+        disabled={!isDirty}
+      />
     </View>
   );
 }

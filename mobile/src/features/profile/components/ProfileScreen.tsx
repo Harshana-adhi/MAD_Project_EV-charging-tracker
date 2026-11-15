@@ -16,6 +16,12 @@ const ROLE_LABEL: Record<Role, string> = {
   admin: 'Admin',
 };
 
+const ROLE_ICON: Record<Role, string> = {
+  customer: 'account',
+  owner: 'ev-station',
+  admin: 'shield-account',
+};
+
 const APPEARANCE_LABEL: Record<ThemePreference, string> = {
   system: 'Use phone setting',
   light: 'Light',
@@ -74,7 +80,7 @@ export function ProfileScreen() {
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
             {profile.phone ?? 'No phone number added'}
           </Text>
-          <Chip compact icon="account" style={styles.roleChip}>
+          <Chip compact icon={ROLE_ICON[profile.role]} style={styles.roleChip}>
             {ROLE_LABEL[profile.role]}
           </Chip>
         </View>
