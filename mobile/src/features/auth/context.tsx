@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { setAuthToken, setUnauthorizedHandler } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
 import { getToken, setToken as persistToken, clearToken } from '@/lib/tokenStorage';
 import { USE_MOCKS } from '@/lib/config';
@@ -26,8 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const activeUserId = useRef<string | null>(null);
 
   async function applySession(nextToken: string, nextUser: User) {
+    if (activeUserId.current !== nextUser.id) {
+      queryClient.clear();
+      activeUserId.current = nextUser.id;
+    }
     setAuthToken(nextToken);
     await persistToken(nextToken);
     setToken(nextToken);
@@ -36,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function clearSession() {
+    queryClient.clear();
+    activeUserId.current = null;
     setAuthToken(null);
     await clearToken();
     setToken(null);
@@ -59,6 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const me = USE_MOCKS
             ? await mock.getMe(storedToken)
             : await real.getMe();
+          if (activeUserId.current !== me.id) {
+            queryClient.clear();
+            activeUserId.current = me.id;
+          }
           setToken(storedToken);
           setUser(me);
           if (!USE_MOCKS) connectSocket(storedToken);
