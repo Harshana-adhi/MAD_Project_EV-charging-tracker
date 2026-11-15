@@ -95,6 +95,12 @@ export function ProfileScreen() {
         right={(props) => <List.Icon {...props} icon="chevron-right" />}
         onPress={() => router.push('/profile/edit')}
       />
+      <List.Item
+        title="Change password"
+        left={(props) => <List.Icon {...props} icon="lock-reset" />}
+        right={(props) => <List.Icon {...props} icon="chevron-right" />}
+        onPress={() => router.push('/password/change')}
+      />
       {role === 'customer' ? (
         <List.Item
           title="My vehicles"
