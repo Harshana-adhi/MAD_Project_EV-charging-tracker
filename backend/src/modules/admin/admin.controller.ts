@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { StationStatus } from '@prisma/client';
+import type { RequestStatus, StationStatus } from '@prisma/client';
 import * as adminService from './admin.service';
 
 export async function getCounts(req: Request, res: Response) {
@@ -15,6 +15,16 @@ export async function listStationsByStatus(req: Request, res: Response) {
 export async function reviewStation(req: Request, res: Response) {
   const station = await adminService.reviewStation(req.params.id, req.body);
   res.json({ data: station });
+}
+
+export async function listTopups(req: Request, res: Response) {
+  const topups = await adminService.listTopups(req.query.status as RequestStatus);
+  res.json({ data: topups });
+}
+
+export async function reviewTopup(req: Request, res: Response) {
+  const topup = await adminService.reviewTopup(req.user!, req.params.id, req.body);
+  res.json({ data: topup });
 }
 
 export async function listUsers(req: Request, res: Response) {

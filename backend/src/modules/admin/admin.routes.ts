@@ -8,6 +8,7 @@ import {
   resetPasswordSchema,
   reviewSchema,
   stationStatusQuerySchema,
+  topupStatusQuerySchema,
   usersQuerySchema,
 } from './admin.schema';
 import * as controller from './admin.controller';
@@ -27,6 +28,17 @@ router.post(
   '/stations/:id/review',
   validate({ params: idParamsSchema, body: reviewSchema }),
   asyncHandler(controller.reviewStation),
+);
+
+router.get(
+  '/topups',
+  validate({ query: topupStatusQuerySchema }),
+  asyncHandler(controller.listTopups),
+);
+router.post(
+  '/topups/:id/review',
+  validate({ params: idParamsSchema, body: reviewSchema }),
+  asyncHandler(controller.reviewTopup),
 );
 
 router.get('/users', validate({ query: usersQuerySchema }), asyncHandler(controller.listUsers));

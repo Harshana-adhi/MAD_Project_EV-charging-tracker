@@ -1,10 +1,15 @@
-import type { Station, StationStatus, User } from '@prisma/client';
-import { prisma } from '../../core/db';
+import type { RequestStatus, Station, StationStatus, TopupRequest, User } from '@prisma/client';
+import { prisma, withTx } from '../../core/db';
 import { AppError } from '../../core/errors';
 import type { AuthUser } from '../../core/auth.middleware';
 import { hashPassword } from '../../core/password';
+import { credit } from '../../core/credit.service';
 import { notify } from '../../core/notify.service';
 import type { ReviewInput } from './admin.schema';
+
+function formatLkr(amount: number): string {
+  return `LKR ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+}
 
 function toPublicUser(user: User) {
   return {
@@ -84,6 +89,71 @@ export async function reviewStation(stationId: string, input: ReviewInput) {
 
   const updated = await prisma.station.findUniqueOrThrow({ where: { id: stationId } });
   return toStation(updated);
+}
+
+function toTopup(request: TopupRequest) {
+  return {
+    id: request.id,
+    amount: request.amount.toNumber(),
+    method: request.method,
+    slipUrl: request.slipUrl,
+    status: request.status,
+    reason: request.reason,
+    createdAt: request.createdAt,
+  };
+}
+
+export async function listTopups(status: RequestStatus) {
+  const requests = await prisma.topupRequest.findMany({
+    where: { status, method: 'slip' },
+    include: { user: { select: { fullName: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  return requests.map((request) => ({ ...toTopup(request), userName: request.user.fullName }));
+}
+
+export async function reviewTopup(admin: AuthUser, topupId: string, input: ReviewInput) {
+  const request = await prisma.topupRequest.findFirst({ where: { id: topupId, method: 'slip' } });
+  if (!request) throw new AppError('NOT_FOUND', 404);
+  const amount = request.amount.toNumber();
+
+  const updated = await withTx(async (tx) => {
+    // Updating only while the request is still pending stops the same slip being credited twice.
+    const result = await tx.topupRequest.updateMany({
+      where: { id: topupId, status: 'pending' },
+      data: {
+        status: input.approve ? 'approved' : 'rejected',
+        reason: input.approve ? null : input.reason,
+        reviewedBy: admin.id,
+      },
+    });
+    if (result.count === 0) throw new AppError('ALREADY_PROCESSED', 409);
+
+    if (input.approve) {
+      await credit.credit(tx, {
+        userId: request.userId,
+        amount,
+        type: 'topup',
+        refType: 'topup',
+        refId: topupId,
+        note: 'Bank slip top-up',
+      });
+    }
+    return tx.topupRequest.findUniqueOrThrow({ where: { id: topupId } });
+  });
+
+  if (input.approve) await credit.emitWalletUpdates([request.userId]);
+  await notify({
+    userId: request.userId,
+    title: input.approve ? 'Top-up approved' : 'Top-up rejected',
+    body: input.approve
+      ? `${formatLkr(amount)} was added to your wallet`
+      : `Your bank slip top-up of ${formatLkr(amount)} was rejected: ${input.reason}`,
+    type: 'topup_review',
+    refId: topupId,
+  });
+
+  return toTopup(updated);
 }
 
 export async function listUsers(search?: string) {

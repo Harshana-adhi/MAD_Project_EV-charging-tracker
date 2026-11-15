@@ -6,6 +6,10 @@ export const stationStatusQuerySchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected']).default('pending'),
 });
 
+export const topupStatusQuerySchema = z.object({
+  status: z.enum(['pending', 'approved', 'rejected']).default('pending'),
+});
+
 export const reviewSchema = z
   .object({
     approve: z.boolean(),
