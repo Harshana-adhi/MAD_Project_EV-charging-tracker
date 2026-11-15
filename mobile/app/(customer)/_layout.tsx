@@ -1,7 +1,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAppTheme } from '@/lib/theme';
-import { LoadingView, ThemeToggleButton } from '@/components';
+import { useAppTheme, spacing } from '@/lib/theme';
+import { LoadingView, LogoMark, ThemeToggleButton } from '@/components';
 import { useAuth } from '@/features/auth';
 
 export default function CustomerTabsLayout() {
@@ -21,6 +21,7 @@ export default function CustomerTabsLayout() {
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarActiveBackgroundColor: theme.colors.secondaryContainer,
         tabBarStyle: { backgroundColor: theme.colors.surface },
+        headerLeft: () => <LogoMark size={26} style={{ marginLeft: spacing.md }} />,
         headerRight: () => <ThemeToggleButton />,
       }}
     >

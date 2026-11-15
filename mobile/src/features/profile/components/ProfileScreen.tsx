@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Avatar, Chip, Divider, List, Text } from 'react-native-paper';
-import { ConfirmDialog, EmptyState, ErrorView, LoadingView, Screen } from '@/components';
+import { ConfirmDialog, EmptyState, ErrorView, LoadingView, Logo, Screen } from '@/components';
 import { useAuth } from '@/features/auth';
 import { useAppTheme, spacing } from '@/lib/theme';
 import { useThemePreference, type ThemePreference } from '@/lib/themePreference';
@@ -129,6 +129,13 @@ export function ProfileScreen() {
         onPress={() => setLogoutOpen(true)}
       />
 
+      <View style={styles.about}>
+        <Logo size={22} withWordmark />
+        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+          Version 1.0.0
+        </Text>
+      </View>
+
       <AppearanceDialog visible={appearanceOpen} onDismiss={() => setAppearanceOpen(false)} />
       <ConfirmDialog
         visible={logoutOpen}
@@ -147,4 +154,5 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginBottom: spacing.xl },
   headerText: { flex: 1, gap: spacing.xs },
   roleChip: { alignSelf: 'flex-start', marginTop: spacing.xs },
+  about: { alignItems: 'center', gap: spacing.xs, marginTop: spacing.xl, marginBottom: spacing.sm },
 });
