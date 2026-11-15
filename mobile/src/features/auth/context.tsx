@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await persistToken(nextToken);
     setToken(nextToken);
     setUser(nextUser);
-    connectSocket(nextToken);
+    if (!USE_MOCKS) connectSocket(nextToken);
   }
 
   async function clearSession() {
@@ -52,10 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedToken) {
         setAuthToken(storedToken);
         try {
-          const me = await api.getMe();
+          const me = USE_MOCKS
+            ? await mock.getMe(storedToken)
+            : await real.getMe();
           setToken(storedToken);
           setUser(me);
-          connectSocket(storedToken);
+          if (!USE_MOCKS) connectSocket(storedToken);
         } catch {
           await clearSession();
         }

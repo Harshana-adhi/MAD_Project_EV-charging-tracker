@@ -1,0 +1,90 @@
+{
+  "info": {
+    "name": "EV Charging Tracker — Station Owner",
+    "description": "Local owner-module requests. Set baseUrl and token in a local Postman environment. Requests that create or change records are not run automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api/v1" },
+    { "key": "token", "value": "" },
+    { "key": "stationId", "value": "" },
+    { "key": "chargerId", "value": "" },
+    { "key": "sessionId", "value": "" },
+    { "key": "from", "value": "2026-11-09" },
+    { "key": "to", "value": "2026-11-15" }
+  ],
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+  "item": [
+    {
+      "name": "Stations",
+      "item": [
+        {
+          "name": "List my stations",
+          "request": { "method": "GET", "url": "{{baseUrl}}/owner/stations" }
+        },
+        {
+          "name": "Create pending station",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Created station is pending', () => { const body = pm.response.json(); pm.expect(body.data.status).to.eql('pending'); pm.environment.set('stationId', body.data.id); });"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Local Test Charging Point\",\n  \"description\": \"Postman development example\",\n  \"address\": \"Kandy, Sri Lanka\",\n  \"lat\": 7.2906,\n  \"lng\": 80.6337,\n  \"openingHours\": \"08:00 – 22:00\",\n  \"amenities\": [\"Parking\", \"WiFi\"]\n}" },
+            "url": "{{baseUrl}}/owner/stations"
+          }
+        },
+        {
+          "name": "Update station / rejected resubmission",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Charging Point\",\n  \"address\": \"Kandy, Sri Lanka\"\n}" }, "url": "{{baseUrl}}/owner/stations/{{stationId}}" }
+        },
+        {
+          "name": "Upload station photo (multipart field: image)",
+          "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "image", "type": "file", "src": "" }] }, "url": "{{baseUrl}}/owner/stations/{{stationId}}/photos" }
+        }
+      ]
+    },
+    {
+      "name": "Chargers",
+      "item": [
+        {
+          "name": "Create charger",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('QR token is 12 URL-safe characters', () => { const token = pm.response.json().data.qrToken; pm.expect(token).to.match(/^[A-Za-z0-9_-]{12}$/); pm.environment.set('chargerId', pm.response.json().data.id); });"], "type": "text/javascript" } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"label\": \"AC Charger 1\",\n  \"connector\": \"TYPE2\",\n  \"powerKw\": 22,\n  \"ratePerKwh\": 85\n}" }, "url": "{{baseUrl}}/owner/stations/{{stationId}}/chargers" }
+        },
+        {
+          "name": "Update charger details",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"label\": \"AC Charger Updated\",\n  \"ratePerKwh\": 90\n}" }, "url": "{{baseUrl}}/owner/chargers/{{chargerId}}" }
+        },
+        {
+          "name": "Set charger offline",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"offline\"}" }, "url": "{{baseUrl}}/owner/chargers/{{chargerId}}/status" }
+        },
+        {
+          "name": "Set charger available",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"available\"}" }, "url": "{{baseUrl}}/owner/chargers/{{chargerId}}/status" }
+        },
+        { "name": "Delete charger (eligible/no history only)", "request": { "method": "DELETE", "url": "{{baseUrl}}/owner/chargers/{{chargerId}}" } }
+      ]
+    },
+    {
+      "name": "Sessions and earnings",
+      "item": [
+        { "name": "List owner sessions", "request": { "method": "GET", "url": "{{baseUrl}}/owner/sessions" } },
+        {
+          "name": "Dispute completed session (10–300 chars, within 24 hours)",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Please review the meter reading for this completed charging session.\"\n}" }, "url": "{{baseUrl}}/owner/sessions/{{sessionId}}/dispute" }
+        },
+        { "name": "Earnings by Colombo date range (maximum 31 days)", "request": { "method": "GET", "url": "{{baseUrl}}/owner/earnings?from={{from}}&to={{to}}" } }
+      ]
+    },
+    {
+      "name": "Withdrawals",
+      "item": [
+        { "name": "List my withdrawals", "request": { "method": "GET", "url": "{{baseUrl}}/owner/withdrawals" } },
+        {
+          "name": "Request withdrawal (minimum 500 credits)",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"amount\": 500,\n  \"bankNote\": \"Bank, branch, account name and number\"\n}" }, "url": "{{baseUrl}}/owner/withdrawals" }
+        }
+      ]
+    }
+  ]
+}
