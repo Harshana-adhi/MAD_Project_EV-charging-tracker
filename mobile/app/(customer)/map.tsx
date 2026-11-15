@@ -243,7 +243,7 @@ export default function MapScreen() {
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <View style={styles.legendRow}>
-      <MaterialCommunityIcons name="circle" size={10} color={color} />
+      <MaterialCommunityIcons name="map-marker" size={16} color={color} />
       <Text variant="labelMedium">{label}</Text>
     </View>
   );

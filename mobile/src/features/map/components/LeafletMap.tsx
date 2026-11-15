@@ -57,10 +57,23 @@ const HTML = `<!DOCTYPE html>
     let markers = [];
     let meMarker = null;
 
-    function markerHtml(fill, textColor, label) {
-      return '<div style="width:30px;height:30px;border-radius:50%;background:' + fill +
-        ';box-shadow:0 0 0 3px #fff, 0 0 0 4px #1F2937;display:flex;align-items:center;' +
-        'justify-content:center;font-weight:bold;color:' + textColor + ';font-size:11px;">' + label + '</div>';
+    function markerHtml(fill, glyphColor, label) {
+      const pin =
+        '<svg width="36" height="46" viewBox="0 0 36 46" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="M18 2C9.2 2 2 9.2 2 18c0 11.6 16 26 16 26s16-14.4 16-26C34 9.2 26.8 2 18 2z" fill="#1F2937"/>' +
+        '<path d="M18 3.5C10 3.5 3.5 10 3.5 18c0 10.4 14.5 23.8 14.5 23.8S32.5 28.4 32.5 18C32.5 10 26 3.5 18 3.5z" fill="#FFFFFF"/>' +
+        '<path d="M18 6C11.4 6 6 11.4 6 18c0 8.9 12 20.4 12 20.4S30 26.9 30 18C30 11.4 24.6 6 18 6z" fill="' + fill + '"/>' +
+        '<rect x="11.5" y="10" width="9.5" height="15" rx="2" fill="' + glyphColor + '"/>' +
+        '<rect x="13.2" y="11.8" width="6.1" height="3.6" rx="0.8" fill="' + fill + '"/>' +
+        '<path d="M17 16.6l-3 4.4h2.1l-0.7 3.3 3-4.4h-2.1z" fill="' + fill + '"/>' +
+        '<path d="M21 13.5h1.6c0.7 0 1.2 0.5 1.2 1.2v6.2c0 0.6 0.5 1.1 1.1 1.1s1.1-0.5 1.1-1.1v-5.4" ' +
+        'fill="none" stroke="' + glyphColor + '" stroke-width="1.4" stroke-linecap="round"/>' +
+        '</svg>';
+      const badge =
+        '<div style="position:absolute;top:-6px;left:24px;min-width:22px;padding:1px 5px;border-radius:9px;' +
+        'background:#FFFFFF;border:1px solid #1F2937;color:#1F2937;font:bold 10px/14px sans-serif;' +
+        'text-align:center;white-space:nowrap;">' + label + '</div>';
+      return '<div style="position:relative;width:36px;height:46px;">' + pin + badge + '</div>';
     }
 
     function clearMarkers() {
@@ -78,7 +91,12 @@ const HTML = `<!DOCTYPE html>
         const fill = available ? '#16A34A' : '#F59E0B';
         const textColor = available ? '#FFFFFF' : '#1F2937';
         const label = station.availableCount + '/' + station.chargerCount;
-        const icon = L.divIcon({ html: markerHtml(fill, textColor, label), className: '', iconSize: [30, 30] });
+        const icon = L.divIcon({
+          html: markerHtml(fill, textColor, label),
+          className: '',
+          iconSize: [36, 46],
+          iconAnchor: [18, 44],
+        });
         const marker = L.marker([station.lat, station.lng], { icon }).addTo(map);
         marker.on('click', () => {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'select', id: station.id }));
