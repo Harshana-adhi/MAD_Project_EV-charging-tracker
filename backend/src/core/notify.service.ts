@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { emitToUser } from './socket';
+import { sendEmailInBackground } from './email.service';
 
 type NotifyInput = {
   userId: string;
@@ -7,6 +8,7 @@ type NotifyInput = {
   body: string;
   type: string;
   refId?: string;
+  email?: boolean;
 };
 
 export async function notify(input: NotifyInput): Promise<void> {
@@ -20,6 +22,21 @@ export async function notify(input: NotifyInput): Promise<void> {
     },
   });
   emitToUser(input.userId, 'notification:new', notification);
+
+  if (input.email) {
+    const user = await prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { email: true, fullName: true },
+    });
+    if (user) {
+      sendEmailInBackground({
+        to: user.email,
+        subject: input.title,
+        heading: input.title,
+        message: `Hi ${user.fullName.split(' ')[0]},\n${input.body}`,
+      });
+    }
+  }
 }
 
 export async function notifyAdmins(
