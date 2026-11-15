@@ -1,4 +1,5 @@
 import { mockUser, mockVehicle } from '@/mocks/fixtures';
+import { getCurrentMockUser, setCurrentMockUser } from '@/mocks/currentUser';
 import type { User, Vehicle, VehicleInput } from '@/types/domain';
 import type { ProfileInput } from './api';
 
@@ -6,7 +7,9 @@ let profile: User = { ...mockUser };
 let vehicles: Vehicle[] = [mockVehicle];
 
 export async function getProfile(): Promise<User> {
-  return profile;
+  const activeUser = getCurrentMockUser();
+  if (profile.id !== activeUser.id) profile = activeUser;
+  return { ...profile };
 }
 
 export async function updateProfile(input: ProfileInput): Promise<User> {
@@ -15,7 +18,8 @@ export async function updateProfile(input: ProfileInput): Promise<User> {
     fullName: input.fullName ?? profile.fullName,
     phone: input.phone === undefined ? profile.phone : input.phone,
   };
-  return profile;
+  setCurrentMockUser(profile);
+  return { ...profile };
 }
 
 export async function listVehicles(): Promise<Vehicle[]> {

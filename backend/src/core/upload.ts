@@ -21,12 +21,38 @@ export const uploadImage = multer({
   },
 }).single('image');
 
-export function toCloudinary(file: Express.Multer.File, folder: string): Promise<string> {
+export type CloudinaryAsset = { url: string; publicId: string };
+
+export function uploadCloudinaryAsset(
+  file: Express.Multer.File,
+  folder: string,
+): Promise<CloudinaryAsset> {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream({ folder }, (error, result) => {
-      if (error || !result) return reject(error);
-      resolve(result.secure_url);
+      if (error) return reject(error);
+      if (!result?.secure_url || !result.public_id) {
+        return reject(new Error('Cloudinary upload did not return an asset identifier'));
+      }
+      resolve({ url: result.secure_url, publicId: result.public_id });
     });
+    stream.on('error', reject);
     stream.end(file.buffer);
+  });
+}
+
+export async function toCloudinary(file: Express.Multer.File, folder: string): Promise<string> {
+  const asset = await uploadCloudinaryAsset(file, folder);
+  return asset.url;
+}
+
+export function deleteCloudinaryAsset(publicId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.destroy(publicId, { resource_type: 'image' }, (error, result) => {
+      if (error) return reject(error);
+      if (result?.result !== 'ok' && result?.result !== 'not found') {
+        return reject(new Error('Cloudinary did not confirm asset deletion'));
+      }
+      resolve();
+    });
   });
 }

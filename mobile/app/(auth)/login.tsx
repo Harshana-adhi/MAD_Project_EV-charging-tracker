@@ -7,6 +7,7 @@ import { Link, router } from 'expo-router';
 import { Text } from 'react-native-paper';
 import { Screen, AppTextInput, AppButton, ErrorView } from '@/components';
 import { useAuth } from '@/features/auth';
+import { USE_MOCKS } from '@/lib/config';
 import { spacing } from '@/lib/theme';
 
 const schema = z.object({
@@ -68,6 +69,11 @@ export default function LoginScreen() {
         />
         {submitError ? <ErrorView error={submitError} /> : null}
         <AppButton label="Log in" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
+        {USE_MOCKS ? (
+          <Text variant="bodySmall" style={{ textAlign: 'center' }}>
+            Demo accounts: owner@evct.lk, customer@evct.lk, or admin@evct.lk (any non-empty password)
+          </Text>
+        ) : null}
         <Link href="/(auth)/register" style={{ marginTop: spacing.sm, textAlign: 'center' }}>
           Need an account? Register
         </Link>
