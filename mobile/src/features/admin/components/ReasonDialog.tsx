@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, Dialog, Portal, Text } from 'react-native-paper';
 import { AppTextInput } from '@/components';
 import { useAppTheme } from '@/lib/theme';
+import { useKeyboardOffset } from '../useKeyboardOffset';
 
 type ReasonDialogProps = {
   title: string;
@@ -12,6 +13,7 @@ type ReasonDialogProps = {
 
 export function ReasonDialog({ title, message, onSubmit, onDismiss }: ReasonDialogProps) {
   const theme = useAppTheme();
+  const keyboardOffset = useKeyboardOffset();
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | undefined>();
 
@@ -26,7 +28,7 @@ export function ReasonDialog({ title, message, onSubmit, onDismiss }: ReasonDial
 
   return (
     <Portal>
-      <Dialog visible onDismiss={onDismiss}>
+      <Dialog visible onDismiss={onDismiss} style={{ marginBottom: keyboardOffset }}>
         <Dialog.Title>{title}</Dialog.Title>
         <Dialog.Content>
           <Text variant="bodyMedium">{message}</Text>
