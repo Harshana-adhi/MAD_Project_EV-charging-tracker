@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Text } from 'react-native-paper';
 import { useAppTheme, spacing } from '@/lib/theme';
@@ -13,15 +13,16 @@ type LogoMarkProps = {
   /** Fixed colors override the theme (e.g. always-white mark on a colored background). */
   leafColor?: string;
   boltColor?: string;
+  style?: StyleProp<ViewStyle>;
 };
 
-export function LogoMark({ size = 40, leafColor, boltColor }: LogoMarkProps) {
+export function LogoMark({ size = 40, leafColor, boltColor, style }: LogoMarkProps) {
   const theme = useAppTheme();
   const leaf = leafColor ?? theme.colors.primary;
   const bolt = boltColor ?? theme.colors.onPrimary;
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="GreenCharge">
+    <Svg width={size} height={size} viewBox="0 0 100 100" style={style} role="img" aria-label="GreenCharge">
       <Path d={LEAF} fill={leaf} />
       <Path d={STEM} stroke={leaf} strokeWidth={6} strokeLinecap="round" fill="none" />
       <Path d={BOLT} fill={bolt} />

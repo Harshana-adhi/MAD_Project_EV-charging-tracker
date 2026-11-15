@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Keeps the branded preloader on screen briefly even when session resolution is instant.
-    const MIN_PRELOADER_MS = 900;
+    const MIN_PRELOADER_MS = 1600;
     const startedAt = Date.now();
 
     (async () => {

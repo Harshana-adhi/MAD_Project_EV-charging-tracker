@@ -1,5 +1,6 @@
-import { StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Text } from 'react-native-paper';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
 import { LogoMark } from './Logo';
 import { spacing } from '@/lib/theme';
 
@@ -7,6 +8,46 @@ import { spacing } from '@/lib/theme';
 // exactly, light or dark mode, so there is no color flash when the JS preloader takes over.
 const BRAND_GREEN = '#15803D';
 const LIGHT_GREEN = '#DCFCE7';
+
+const BAR_WIDTH = 140;
+
+function FillingBar() {
+  const fill = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(fill, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: false,
+        }),
+        Animated.timing(fill, {
+          toValue: 0,
+          duration: 0,
+          delay: 150,
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [fill]);
+
+  return (
+    <View style={styles.barTrack}>
+      <Animated.View
+        style={[
+          styles.barFill,
+          {
+            width: fill.interpolate({ inputRange: [0, 1], outputRange: [0, BAR_WIDTH] }),
+          },
+        ]}
+      />
+    </View>
+  );
+}
 
 // Shown once at app start while the stored session is being resolved.
 export function AppPreloader() {
@@ -21,7 +62,7 @@ export function AppPreloader() {
           FIND. CHARGE. GO GREEN.
         </Text>
       </View>
-      <ActivityIndicator style={styles.spinner} size="small" color="#FFFFFF" />
+      <FillingBar />
     </View>
   );
 }
@@ -31,5 +72,18 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', gap: spacing.sm },
   wordmark: { fontWeight: '800', letterSpacing: -0.5 },
   tagline: { letterSpacing: 2 },
-  spinner: { position: 'absolute', bottom: 64 },
+  barTrack: {
+    position: 'absolute',
+    bottom: 72,
+    width: BAR_WIDTH,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+  },
 });
