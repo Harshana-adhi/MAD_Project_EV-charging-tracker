@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth';
 import { useAdminCounts } from '@/features/admin/hooks';
 import { useAppTheme, spacing } from '@/lib/theme';
 import type { AdminCounts } from '@/types/domain';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
 type CountCard = {
   key: keyof AdminCounts;
@@ -40,7 +41,8 @@ const COUNT_CARDS: CountCard[] = [
 export default function AdminDashboardScreen() {
   const theme = useAppTheme();
   const { user } = useAuth();
-  const { data: counts, isLoading, isError, error, refetch, isRefetching } = useAdminCounts();
+  const { data: counts, isLoading, isError, error, refetch } = useAdminCounts();
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
 
   if (isLoading) return <LoadingView />;
   if (isError || !counts) return <ErrorView error={error} onRetry={refetch} />;
@@ -48,7 +50,7 @@ export default function AdminDashboardScreen() {
   const firstName = user?.fullName.split(' ')[0] ?? 'Admin';
 
   return (
-    <Screen scroll refreshing={isRefetching} onRefresh={refetch}>
+    <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
       <Text variant="headlineSmall">Hello, {firstName}</Text>
       <Text variant="bodyMedium" style={[styles.intro, { color: theme.colors.onSurfaceVariant }]}>
         Here is what needs your attention.

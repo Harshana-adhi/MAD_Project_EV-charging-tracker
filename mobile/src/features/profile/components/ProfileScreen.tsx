@@ -9,6 +9,7 @@ import { useThemePreference, type ThemePreference } from '@/lib/themePreference'
 import type { Role } from '@/types/domain';
 import { useProfile } from '../hooks';
 import { AppearanceDialog } from './AppearanceDialog';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
 const ROLE_LABEL: Record<Role, string> = {
   customer: 'Customer',
@@ -41,7 +42,8 @@ export function ProfileScreen() {
   const theme = useAppTheme();
   const { user, role, signOut } = useAuth();
   const { preference } = useThemePreference();
-  const { data: profile, isLoading, isError, error, refetch, isRefetching } = useProfile();
+  const { data: profile, isLoading, isError, error, refetch } = useProfile();
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
@@ -69,7 +71,7 @@ export function ProfileScreen() {
   }
 
   return (
-    <Screen scroll refreshing={isRefetching} onRefresh={refetch}>
+    <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
       <View style={styles.header}>
         <Avatar.Text size={64} label={initials(profile.fullName)} />
         <View style={styles.headerText}>

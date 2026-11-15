@@ -21,6 +21,7 @@ import {
 import { errorMessage } from '@/lib/errors';
 import { useAppTheme, spacing } from '@/lib/theme';
 import type { User } from '@/types/domain';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
 const SEARCH_DELAY_MS = 300;
 
@@ -46,7 +47,8 @@ export default function AdminUsersScreen() {
   const [searchText, setSearchText] = useState('');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const { data: users, isLoading, isError, error, refetch, isRefetching } = useAdminUsers(search);
+  const { data: users, isLoading, isError, error, refetch } = useAdminUsers(search);
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const setUserBlocked = useSetUserBlocked();
   const resetUserPassword = useResetUserPassword();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -108,8 +110,8 @@ export default function AdminUsersScreen() {
         keyExtractor={(user) => user.id}
         renderItem={({ item }) => <UserRow user={item} onPress={() => setSelectedUser(item)} />}
         ItemSeparatorComponent={Divider}
-        refreshing={isRefetching}
-        onRefresh={refetch}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         keyboardShouldPersistTaps="handled"
         style={[styles.list, { backgroundColor: theme.colors.surface }]}
         ListEmptyComponent={

@@ -6,6 +6,7 @@ import { useIncomeDetail } from '@/features/reports/hooks';
 import { monthForKey, periodLabel } from '@/features/reports/labels';
 import { formatCredits, formatKwh } from '@/lib/format';
 import { useAppTheme, spacing } from '@/lib/theme';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
 function currentMonthKey(): string {
   const now = new Date();
@@ -15,7 +16,8 @@ function currentMonthKey(): string {
 export default function IncomePeriodScreen() {
   const theme = useAppTheme();
   const { key } = useLocalSearchParams<{ key: string }>();
-  const { data: detail, isLoading, isError, error, refetch, isRefetching } = useIncomeDetail(key);
+  const { data: detail, isLoading, isError, error, refetch } = useIncomeDetail(key);
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const secondary = { color: theme.colors.onSurfaceVariant };
 
   function renderContent() {
@@ -112,8 +114,8 @@ export default function IncomePeriodScreen() {
       title={key ? periodLabel(key) : 'Income'}
       back
       scroll
-      refreshing={isRefetching}
-      onRefresh={refetch}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
     >
       {renderContent()}
     </Screen>
