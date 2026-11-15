@@ -78,8 +78,8 @@ export default function OwnerDashboardScreen() {
           </Text>
         </View>
 
-        {stations.isLoading && wallet.isLoading ? (
-          <LoadingView message="Loading your dashboard…" />
+        {stations.isLoading || wallet.isLoading ? (
+          <LoadingView message="Loading dashboard data…" />
         ) : null}
         {earnings.isLoading || sessions.isLoading ? <LoadingView message="Loading session and earnings totals…" /> : null}
 
@@ -107,9 +107,6 @@ export default function OwnerDashboardScreen() {
               </Text>
             </PaperCard.Content>
           </PaperCard>
-        ) : null}
-        {wallet.isLoading && !wallet.data ? (
-          <LoadingView message="Loading wallet…" />
         ) : null}
         {wallet.isError ? <ErrorView error={wallet.error} onRetry={() => void wallet.refetch()} /> : null}
 
