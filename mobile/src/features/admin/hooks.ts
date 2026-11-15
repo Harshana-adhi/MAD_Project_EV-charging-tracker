@@ -34,10 +34,16 @@ export function useAdminStations(status: StationStatus) {
 }
 
 export function useReviewStation() {
+  const queryClient = useQueryClient();
   const refresh = useRefreshAdminData();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: ReviewInput }) => api.reviewStation(id, input),
-    onSettled: refresh,
+    onSettled: () => {
+      refresh();
+      // An approved station must also appear on the map tab straight away.
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+      queryClient.invalidateQueries({ queryKey: ['station'] });
+    },
   });
 }
 
