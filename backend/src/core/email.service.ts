@@ -13,6 +13,7 @@ type EmailAttachment = {
   content: Buffer;
   // When set, the file is shown inside the email (referenced as cid:<contentId>) instead of attached.
   contentId?: string;
+  contentType?: string;
 };
 
 type EmailInput = {
@@ -89,8 +90,9 @@ export async function sendEmail(input: EmailInput): Promise<void> {
     from: config.emailFrom,
     to: input.to,
     subject: input.subject,
-    html: buildHtml(input.heading, input.message),
+    html: buildHtml(input.heading, input.message, input.image),
     text: `${input.heading}\n\n${input.message}\n\nGreenCharge`,
+    attachments: input.attachments,
   });
 
   if (error) console.error(`Email to ${input.to} failed: ${error.message}`);

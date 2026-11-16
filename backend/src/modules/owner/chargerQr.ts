@@ -52,8 +52,8 @@ export async function emailChargerQr(chargerId: string, ownerId: string): Promis
     ].join('\n'),
     image: { contentId: 'charger-qr', alt: `QR code for ${charger.label}`, caption: `${stationName} · ${charger.label}` },
     attachments: [
-      { filename: 'charger-qr.png', content: png, contentId: 'charger-qr' },
-      { filename, content: png },
+      { filename: 'charger-qr.png', content: png, contentId: 'charger-qr', contentType: 'image/png' },
+      { filename, content: png, contentType: 'image/png' },
     ],
   });
   return to;
