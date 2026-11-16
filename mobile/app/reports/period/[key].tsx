@@ -58,6 +58,11 @@ export default function IncomePeriodScreen() {
         <Text variant="titleMedium" style={styles.section}>
           Owner income
         </Text>
+        {detail.owners.length > 1 ? (
+          <Text variant="bodySmall" style={[secondary, styles.sectionHint]}>
+            Highest earner first
+          </Text>
+        ) : null}
         {detail.owners.length === 0 ? (
           <EmptyState
             icon="ev-station"
@@ -81,7 +86,7 @@ export default function IncomePeriodScreen() {
                 >
                   <View style={styles.ownerRow}>
                     <Text variant="labelLarge" style={[styles.rank, secondary]}>
-                      {index + 1}
+                      #{index + 1}
                     </Text>
                     <View style={styles.ownerText}>
                       <Text variant="bodyLarge" numberOfLines={1}>
@@ -128,6 +133,7 @@ const styles = StyleSheet.create({
   tile: { flex: 1, borderRadius: 12, padding: spacing.md, gap: spacing.xs },
   tabular: { fontVariant: ['tabular-nums'] },
   section: { marginTop: spacing.xl, marginBottom: spacing.md },
+  sectionHint: { marginTop: -8, marginBottom: 8 },
   card: { borderRadius: 12, overflow: 'hidden' },
   ownerRow: {
     flexDirection: 'row',
