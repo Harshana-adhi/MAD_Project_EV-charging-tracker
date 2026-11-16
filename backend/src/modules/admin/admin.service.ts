@@ -87,6 +87,7 @@ export async function reviewStation(stationId: string, input: ReviewInput) {
   });
   if (result.count === 0) throw new AppError('ALREADY_PROCESSED', 409);
 
+  broadcastStationChanged(stationId, input.approve ? 'approved' : 'rejected');
   await notify({
     userId: station.ownerId,
     title: input.approve ? 'Station approved' : 'Station rejected',

@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../core/db';
 import { AppError } from '../../core/errors';
+import { broadcast } from '../../core/socket';
 
 const reviewFields = {
   id: true,
@@ -58,6 +59,7 @@ export async function addReview(customerId: string, input: ReviewInput) {
       },
       select: reviewFields,
     });
+    broadcast('station:changed', { stationId: session.stationId, status: 'reviews' });
     return toReview(review);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

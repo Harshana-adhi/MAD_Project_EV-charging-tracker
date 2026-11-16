@@ -43,6 +43,17 @@ function useChargerStatusSync() {
     });
   }, [queryClient]);
 
+  // Events sent while the app was offline or in the background are gone, so refetch when the
+  // socket (re)connects instead of trusting what was cached.
+  useEffect(() => {
+    return onEvent('connect', () => {
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+      queryClient.invalidateQueries({ queryKey: ['station'] });
+      queryClient.invalidateQueries({ queryKey: ['station-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+    });
+  }, [queryClient]);
+
   // A station an owner deleted or an admin hid must leave the map and lists straight away.
   useEffect(() => {
     return onEvent('station:changed', (payload) => {

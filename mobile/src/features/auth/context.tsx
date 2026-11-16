@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { setAuthToken, setUnauthorizedHandler } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
-import { connectSocket, disconnectSocket } from '@/lib/socket';
+import { connectSocket } from '@/lib/socket';
 import { getToken, setToken as persistToken, clearToken } from '@/lib/tokenStorage';
 import { USE_MOCKS } from '@/lib/config';
 import { MIN_PRELOADER_MS } from '@/lib/preloader';
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearToken();
     setToken(null);
     setUser(null);
-    disconnectSocket();
+    if (!USE_MOCKS) connectSocket();
   }
 
   useEffect(() => {
@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await clearSession();
         }
       }
+      if (!USE_MOCKS && !storedToken) connectSocket();
       const elapsed = Date.now() - startedAt;
       if (elapsed < MIN_PRELOADER_MS) {
         await new Promise((resolve) => setTimeout(resolve, MIN_PRELOADER_MS - elapsed));
