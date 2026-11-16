@@ -15,6 +15,26 @@ const sessionInclude = {
 
 type SessionDetails = Prisma.SessionGetPayload<{ include: typeof sessionInclude }>;
 
+// The demo meter runs 60 times faster than real time (one real second is one charging minute).
+// It must match SPEED in mobile/src/features/session/meterReading.ts.
+const METER_SPEED = 60;
+
+// The energy is worked out on the server from the charger's power and how long the session ran,
+// so a modified app cannot report less energy than was delivered. It never goes beyond what the
+// spending limit can pay for, because the meter stops there.
+export function meteredKwh(
+  powerKw: number,
+  ratePerKwh: number,
+  spendingLimit: number,
+  startedAt: Date,
+  endedAt: Date,
+): number {
+  const elapsedMs = Math.max(0, endedAt.getTime() - startedAt.getTime());
+  const delivered = (powerKw * elapsedMs * METER_SPEED) / 3_600_000;
+  const affordable = spendingLimit / ratePerKwh;
+  return Math.max(0.01, Math.floor(Math.min(delivered, affordable) * 100) / 100);
+}
+
 export function calculateCost(kwh: number, ratePerKwh: number, spendingLimit: number): number {
   const energyHundredths = Math.round(kwh * 100);
   const rateCents = Math.round(ratePerKwh * 100);
@@ -127,8 +147,8 @@ export async function startSession(customerId: string, input: { qrToken: string;
   return plainSession(session);
 }
 
-export async function endSession(id: string, customerId: string, kwh: number) {
-  const { session, ownerId, stationName, chargerLabel } = await withTx(async (tx) => {
+export async function endSession(id: string, customerId: string) {
+  const { session, ownerId, stationName, chargerLabel, kwh } = await withTx(async (tx) => {
     await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id} FOR UPDATE`;
     const current = await tx.session.findUnique({
       where: { id },
@@ -138,6 +158,14 @@ export async function endSession(id: string, customerId: string, kwh: number) {
     if (current.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
     if (current.status !== 'active') throw new AppError('SESSION_NOT_ACTIVE', 409);
 
+    const endedAt = new Date();
+    const kwh = meteredKwh(
+      current.charger.powerKw.toNumber(),
+      current.charger.ratePerKwh.toNumber(),
+      current.spendingLimit.toNumber(),
+      current.startedAt,
+      endedAt,
+    );
     const cost = calculateCost(
       kwh,
       current.charger.ratePerKwh.toNumber(),
@@ -152,10 +180,10 @@ export async function endSession(id: string, customerId: string, kwh: number) {
     });
     const session = await tx.session.update({
       where: { id },
-      data: { status: 'completed', kwh, cost, commission, endedAt: new Date() },
+      data: { status: 'completed', kwh, cost, commission, endedAt },
     });
     await tx.charger.update({ where: { id: current.chargerId }, data: { status: 'available' } });
-    return { session, ownerId: current.station.ownerId, stationName: current.station.name, chargerLabel: current.charger.label };
+    return { session, ownerId: current.station.ownerId, stationName: current.station.name, chargerLabel: current.charger.label, kwh };
   });
 
   publishStatus(session, ownerId, 'available');
