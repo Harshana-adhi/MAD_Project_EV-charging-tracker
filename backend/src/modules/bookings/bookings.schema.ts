@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export const MIN_BOOKING_MINUTES = 30;
+export const MAX_BOOKING_MINUTES = 240;
+
 export const bookingIdParamsSchema = z.object({ id: z.string().uuid() });
 
 export const stationBookingsQuerySchema = z.object({
@@ -9,5 +12,11 @@ export const stationBookingsQuerySchema = z.object({
 export const createBookingSchema = z.object({
   chargerId: z.string().uuid(),
   startAt: z.string().datetime(),
-  durationMinutes: z.union([z.literal(30), z.literal(60)]),
+  // The slot length the app works out from the customer's charge target, in half-hour steps.
+  durationMinutes: z
+    .number()
+    .int()
+    .min(MIN_BOOKING_MINUTES)
+    .max(MAX_BOOKING_MINUTES)
+    .refine((minutes) => minutes % 30 === 0, { message: 'Bookings are in 30 minute steps' }),
 });

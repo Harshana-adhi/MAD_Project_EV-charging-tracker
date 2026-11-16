@@ -81,7 +81,7 @@ export async function listStationBookings(stationId: string, date: string) {
   }));
 }
 
-function assertValidSlot(startAt: Date, durationMinutes: 30 | 60, openingHours: string) {
+function assertValidSlot(startAt: Date, durationMinutes: number, openingHours: string) {
   const now = new Date();
   if (startAt.getTime() < now.getTime()) throw new AppError('VALIDATION_ERROR', 400, 'That slot is in the past');
   if (startAt.getTime() > now.getTime() + SEVEN_DAYS_MS) {
@@ -97,7 +97,7 @@ function assertValidSlot(startAt: Date, durationMinutes: 30 | 60, openingHours: 
 
 export async function createBooking(
   customerId: string,
-  input: { chargerId: string; startAt: string; durationMinutes: 30 | 60 },
+  input: { chargerId: string; startAt: string; durationMinutes: number },
 ) {
   await runBookingSweep();
   const startAt = new Date(input.startAt);

@@ -1,3 +1,4 @@
+import { View } from 'react-native';
 import { Chip } from 'react-native-paper';
 import type { ConnectorType } from '@/types/domain';
 
@@ -16,7 +17,7 @@ type ConnectorChipProps = {
 };
 
 export function ConnectorChip({ connector, selected, onPress }: ConnectorChipProps) {
-  return (
+  const chip = (
     <Chip
       icon={ICON[connector]}
       selected={selected}
@@ -27,4 +28,7 @@ export function ConnectorChip({ connector, selected, onPress }: ConnectorChipPro
       {connector}
     </Chip>
   );
+  if (onPress) return chip;
+  // A display-only chip lets taps through, so a card it sits on still gets pressed.
+  return <View pointerEvents="none">{chip}</View>;
 }
