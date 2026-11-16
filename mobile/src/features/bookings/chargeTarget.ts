@@ -13,16 +13,11 @@ export const MAX_LIMIT = 20000;
 // Same range as durationMinutes in backend/src/modules/bookings/bookings.schema.ts.
 export const MAX_SLOT_MINUTES = 240;
 
-export const TARGET_OPTIONS: Record<
-  TargetType,
-  { label: string; icon: string; unit: string; presets: number[]; step: number; min: number; max: number }
-> = {
-  amount: { label: 'Amount', icon: 'cash', unit: 'LKR', presets: [500, 1000, 2000, 5000], step: 100, min: 100, max: 20000 },
-  time: { label: 'Time', icon: 'timer-outline', unit: 'min', presets: [30, 60, 120, 180], step: 30, min: 30, max: 240 },
-  units: { label: 'Units', icon: 'lightning-bolt', unit: 'kWh', presets: [5, 10, 20, 30], step: 1, min: 1, max: 200 },
+export const TARGET_OPTIONS: Record<TargetType, { label: string; icon: string; unit: string; question: string; example: string }> = {
+  amount: { label: 'Amount', icon: 'cash', unit: 'LKR', question: 'How much do you want to spend?', example: 'e.g. 1000' },
+  time: { label: 'Time', icon: 'timer-outline', unit: 'minutes', question: 'How long do you want to charge?', example: 'e.g. 60' },
+  units: { label: 'Units', icon: 'lightning-bolt', unit: 'kWh', question: 'How many units do you need?', example: 'e.g. 10' },
 };
-
-export const DEFAULT_TARGETS: Record<TargetType, number> = { amount: 1000, time: 60, units: 10 };
 
 export type ChargePlan = {
   limit: number;
