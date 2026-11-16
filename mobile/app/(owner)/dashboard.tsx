@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useWindowDimensions, View, StyleSheet } from 'react-native';
 import { Card as PaperCard, IconButton, List, Text } from 'react-native-paper';
@@ -24,7 +25,8 @@ const CHARGER_STATUSES: ChargerStatus[] = ['available', 'busy', 'offline'];
 export default function OwnerDashboardScreen() {
   const theme = useAppTheme();
   const snackbar = useSnackbar();
-  const { width } = useWindowDimensions();
+  const { fontScale } = useWindowDimensions();
+  const [metricsWidth, setMetricsWidth] = useState(0);
   const stations = useOwnerStations();
   const wallet = useOwnerWallet();
   const sessions = useOwnerSessions();
@@ -33,7 +35,12 @@ export default function OwnerDashboardScreen() {
   const setStatus = useSetChargerStatus();
   const stationData = stations.data;
   const chargers = stationData?.flatMap((station) => station.chargers) ?? [];
-  const metricWidth = width >= 700 ? '32%' : '48%';
+  const minimumMetricWidth = 180 * fontScale;
+  const stackMetrics =
+    metricsWidth === 0 || metricsWidth < minimumMetricWidth * 2 + spacing.md;
+  const metricCellWidth = metricsWidth > 0
+    ? stackMetrics ? metricsWidth : (metricsWidth - spacing.md) / 2
+    : '100%';
 
   function refreshDashboard() {
     void Promise.all([stations.refetch(), wallet.refetch(), sessions.refetch(), earnings.refetch()]);
@@ -109,8 +116,14 @@ export default function OwnerDashboardScreen() {
         ) : null}
         {wallet.isError ? <ErrorView error={wallet.error} onRetry={() => void wallet.refetch()} /> : null}
 
-        <View style={styles.metrics}>
-          <View style={[styles.metricCell, { flexBasis: metricWidth }]}>
+        <View
+          style={styles.metrics}
+          onLayout={(event) => {
+            const nextWidth = event.nativeEvent.layout.width;
+            setMetricsWidth((currentWidth) => currentWidth === nextWidth ? currentWidth : nextWidth);
+          }}
+        >
+          <View style={[styles.metricCell, { width: metricCellWidth }]}>
             <MetricCard
               title="Today's earnings"
               value={todaysEarnings === undefined ? '—' : formatCredits(todaysEarnings)}
@@ -118,7 +131,7 @@ export default function OwnerDashboardScreen() {
               icon="chart-bar"
             />
           </View>
-          <View style={[styles.metricCell, { flexBasis: metricWidth }]}>
+          <View style={[styles.metricCell, { width: metricCellWidth }]}>
             <MetricCard
               title="Active sessions"
               value={activeSessionCount === null ? '—' : String(activeSessionCount)}
@@ -280,8 +293,8 @@ const styles = StyleSheet.create({
   walletContent: { gap: spacing.sm },
   walletHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   balance: { fontVariant: ['tabular-nums'] },
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  metricCell: { flexGrow: 1, flexShrink: 1 },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.md },
+  metricCell: { minWidth: 0 },
   metricValue: { fontVariant: ['tabular-nums'], marginBottom: spacing.xs },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
