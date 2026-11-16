@@ -48,6 +48,11 @@ export default function StationDetailsScreen() {
     Linking.openURL(url);
   }
 
+  function openDirectionsInApp() {
+    setDirectionsOpen(false);
+    router.push({ pathname: '/(customer)/map', params: { routeToId: station!.id } });
+  }
+
   function chargeHere() {
     if (!user) {
       router.push('/(auth)/login');
@@ -191,6 +196,7 @@ export default function StationDetailsScreen() {
             />
           }
         >
+          <Menu.Item onPress={openDirectionsInApp} title="In GreenCharge" leadingIcon="map" />
           <Menu.Item onPress={() => openDirections('google')} title="Google Maps" leadingIcon="google-maps" />
           <Menu.Item onPress={() => openDirections('waze')} title="Waze" leadingIcon="map-marker-path" />
         </Menu>
