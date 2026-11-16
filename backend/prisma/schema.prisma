@@ -287,3 +287,16 @@ model Booking {
   @@index([customerId, status])
   @@map("bookings")
 }
+
+// Live-update events each backend instance writes so other instances (other developers'
+// local backends sharing this database) can pass them on to their own connected phones.
+model RealtimeEvent {
+  id        Int      @id @default(autoincrement())
+  event     String
+  payload   Json
+  userId    String?  @map("user_id")
+  source    String
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([createdAt])
+  @@map("realtime_events")
+}

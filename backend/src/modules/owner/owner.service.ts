@@ -6,7 +6,7 @@ import { notify, notifyAdmins } from '../../core/notify.service';
 import { broadcast, emitToUser } from '../../core/socket';
 import { credit } from '../../core/credit.service';
 import { deleteCloudinaryAsset, uploadCloudinaryAsset } from '../../core/upload';
-import { getStationStatusCounts, takeStationOffMap } from '../stations/stations.service';
+import { broadcastStationChanged, getStationStatusCounts, takeStationOffMap } from '../stations/stations.service';
 import { runChargerSweep } from '../../core/charger.jobs';
 import { createChargerQrToken } from './owner.crypto';
 import { connectorPowerProblem } from './owner.schema';
@@ -176,7 +176,7 @@ export async function updateStation(
   owner: AuthUser,
   input: UpdateStationInput,
 ) {
-  return withTx(async (tx) => {
+  const updated = await withTx(async (tx) => {
     await tx.$queryRaw<{ id: string }[]>`SELECT id FROM stations WHERE id = ${stationId} FOR UPDATE`;
     const station = await tx.station.findUnique({ where: { id: stationId } });
     if (!station || station.status === 'deleted') throw new AppError('NOT_FOUND', 404);
@@ -189,6 +189,8 @@ export async function updateStation(
       },
     });
   });
+  broadcastStationChanged(stationId, updated.status);
+  return updated;
 }
 
 export async function deleteStation(stationId: string, owner: AuthUser) {
@@ -295,6 +297,7 @@ export async function createCharger(stationId: string, owner: AuthUser, input: C
     });
   });
 
+  broadcastStationChanged(charger.stationId, 'chargers');
   return toCharger(charger);
 }
 
@@ -312,6 +315,7 @@ export async function updateCharger(
     return tx.charger.update({ where: { id: chargerId }, data: input });
   });
 
+  broadcastStationChanged(charger.stationId, 'chargers');
   return toCharger(charger);
 }
 
@@ -330,6 +334,7 @@ export async function updateStationCharger(
     );
     return tx.charger.update({ where: { id: chargerId }, data: input });
   });
+  broadcastStationChanged(charger.stationId, 'chargers');
   return toCharger(charger);
 }
 
@@ -350,7 +355,10 @@ export async function deleteCharger(chargerId: string, owner: AuthUser) {
     }
 
     await tx.charger.delete({ where: { id: chargerId } });
-    return { id: chargerId };
+    return { id: chargerId, stationId: charger.stationId };
+  }).then((result) => {
+    broadcastStationChanged(result.stationId, 'chargers');
+    return { id: result.id };
   });
 }
 
@@ -644,6 +652,7 @@ export async function deleteOwnerReview(reviewId: string, owner: AuthUser) {
   assertOwner(review.station.ownerId, owner);
 
   await prisma.review.delete({ where: { id: reviewId } });
+  broadcastStationChanged(review.stationId, 'reviews');
   await notify({
     userId: review.customerId,
     title: 'Review removed',
