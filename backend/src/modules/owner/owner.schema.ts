@@ -30,6 +30,25 @@ export const chargerInStationParamsSchema = z.object({
 });
 export const sessionIdParamsSchema = z.object({ id: z.string().uuid() });
 
+// Realistic power for each plug type: Type 1 and Type 2 are AC plugs, CCS2 and CHAdeMO are DC fast
+// chargers, and GB/T covers both AC and DC.
+export const CONNECTOR_POWER_KW: Record<z.infer<typeof connectorSchema>, { min: number; max: number }> = {
+  TYPE1: { min: 3, max: 7.4 },
+  TYPE2: { min: 3, max: 43 },
+  CCS2: { min: 20, max: 350 },
+  CHADEMO: { min: 20, max: 100 },
+  GBT: { min: 3, max: 250 },
+};
+
+export function connectorPowerProblem(
+  connector: z.infer<typeof connectorSchema>,
+  powerKw: number,
+): string | null {
+  const range = CONNECTOR_POWER_KW[connector];
+  if (powerKw >= range.min && powerKw <= range.max) return null;
+  return `${connector} chargers must be ${range.min}–${range.max} kW`;
+}
+
 export const chargerInputSchema = z
   .object({
     label: z.string().trim().min(1).max(30),

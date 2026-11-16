@@ -7,6 +7,7 @@ import { broadcast, emitToUser } from '../../core/socket';
 import { credit } from '../../core/credit.service';
 import { deleteCloudinaryAsset, uploadCloudinaryAsset } from '../../core/upload';
 import { createChargerQrToken } from './owner.crypto';
+import { connectorPowerProblem } from './owner.schema';
 import type {
   ChargerInput,
   StationInput,
@@ -252,12 +253,20 @@ export async function uploadStationPhoto(
   }
 }
 
+// An update can change only the plug or only the power, so the check uses the saved value for
+// whichever field was left out.
+function assertPowerFitsConnector(connector: Charger['connector'], powerKw: number) {
+  const problem = connectorPowerProblem(connector, powerKw);
+  if (problem) throw new AppError('VALIDATION_ERROR', 400, problem);
+}
+
 export async function createCharger(stationId: string, owner: AuthUser, input: ChargerInput) {
   const charger = await withTx(async (tx) => {
     await tx.$queryRaw<{ id: string }[]>`SELECT id FROM stations WHERE id = ${stationId} FOR UPDATE`;
     const station = await tx.station.findUnique({ where: { id: stationId } });
     if (!station) throw new AppError('NOT_FOUND', 404);
     assertOwner(station.ownerId, owner);
+    assertPowerFitsConnector(input.connector, input.powerKw);
 
     return tx.charger.create({
       data: {
@@ -278,7 +287,11 @@ export async function updateCharger(
   input: UpdateChargerInput,
 ) {
   const charger = await withTx(async (tx) => {
-    await lockOwnedCharger(tx, chargerId, owner);
+    const current = await lockOwnedCharger(tx, chargerId, owner);
+    assertPowerFitsConnector(
+      input.connector ?? current.connector,
+      input.powerKw ?? current.powerKw.toNumber(),
+    );
     return tx.charger.update({ where: { id: chargerId }, data: input });
   });
 
@@ -294,6 +307,10 @@ export async function updateStationCharger(
   const charger = await withTx(async (tx) => {
     const current = await lockOwnedCharger(tx, chargerId, owner);
     if (current.stationId !== stationId) throw new AppError('NOT_FOUND', 404);
+    assertPowerFitsConnector(
+      input.connector ?? current.connector,
+      input.powerKw ?? current.powerKw.toNumber(),
+    );
     return tx.charger.update({ where: { id: chargerId }, data: input });
   });
   return toCharger(charger);

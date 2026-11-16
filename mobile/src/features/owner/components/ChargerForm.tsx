@@ -11,13 +11,28 @@ import type { Charger, ChargerInput, ConnectorType } from '@/types/domain';
 
 const CONNECTORS: ConnectorType[] = ['TYPE1', 'TYPE2', 'CCS2', 'CHADEMO', 'GBT'];
 
+// Same limits as CONNECTOR_POWER_KW in backend/src/modules/owner/owner.schema.ts.
+const CONNECTOR_POWER_KW: Record<ConnectorType, { min: number; max: number }> = {
+  TYPE1: { min: 3, max: 7.4 },
+  TYPE2: { min: 3, max: 43 },
+  CCS2: { min: 20, max: 350 },
+  CHADEMO: { min: 20, max: 100 },
+  GBT: { min: 3, max: 250 },
+};
+
+function powerHint(connector: ConnectorType): string {
+  const range = CONNECTOR_POWER_KW[connector];
+  return `${connector} chargers are ${range.min}–${range.max} kW`;
+}
+
 function isInRange(value: string, min: number, max: number): boolean {
   if (!value.trim()) return false;
   const number = Number(value);
   return Number.isFinite(number) && number >= min && number <= max;
 }
 
-const schema = z.object({
+const schema = z
+  .object({
   label: z.string().trim().min(1, 'Enter a charger label').max(30, 'Use 30 characters or fewer'),
   connector: z.enum(CONNECTORS, { error: 'Choose a connector type' }),
   powerKw: z.string().trim().refine((value) => isInRange(value, 3, 350), 'Power must be 3–350 kW'),
@@ -25,7 +40,13 @@ const schema = z.object({
     .string()
     .trim()
     .refine((value) => isInRange(value, 10, 500), 'Rate must be 10–500 credits per kWh'),
-});
+  })
+  .superRefine((values, context) => {
+    const range = CONNECTOR_POWER_KW[values.connector];
+    // The general 3–350 kW message already covers values outside every range.
+    if (!isInRange(values.powerKw, 3, 350) || isInRange(values.powerKw, range.min, range.max)) return;
+    context.addIssue({ code: 'custom', path: ['powerKw'], message: powerHint(values.connector) });
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -42,6 +63,7 @@ export function ChargerForm({ visible, charger, loading, onSubmit, onDismiss }: 
   const {
     control,
     handleSubmit,
+    watch,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -136,6 +158,7 @@ export function ChargerForm({ visible, charger, loading, onSubmit, onDismiss }: 
                 />
               )}
             />
+            {!errors.powerKw ? <HelperText type="info">{powerHint(watch('connector'))}</HelperText> : null}
             <Controller
               control={control}
               name="ratePerKwh"
