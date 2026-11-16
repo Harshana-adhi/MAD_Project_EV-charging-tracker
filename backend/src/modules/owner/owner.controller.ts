@@ -3,6 +3,7 @@ import multer from 'multer';
 import { AppError } from '../../core/errors';
 import { uploadImage } from '../../core/upload';
 import * as ownerService from './owner.service';
+import { emailChargerQr, emailChargerQrInBackground } from './chargerQr';
 
 export async function listMyStations(req: Request, res: Response) {
   const stations = await ownerService.listMyStations(req.user!.id);
@@ -50,7 +51,15 @@ export async function uploadStationPhoto(req: Request, res: Response) {
 
 export async function createCharger(req: Request, res: Response) {
   const charger = await ownerService.createCharger(req.params.id, req.user!, req.body);
+  // Send the owner the new charger's QR to print, without holding up the response.
+  emailChargerQrInBackground(charger.id, req.user!.id);
   res.status(201).json({ data: charger });
+}
+
+// Sends the charger's QR to the owner's email again, e.g. if they lost the first one.
+export async function emailChargerQrCode(req: Request, res: Response) {
+  const sentTo = await emailChargerQr(req.params.id, req.user!.id);
+  res.json({ data: { sentTo } });
 }
 
 export async function updateCharger(req: Request, res: Response) {
