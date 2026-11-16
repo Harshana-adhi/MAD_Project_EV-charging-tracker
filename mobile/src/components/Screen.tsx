@@ -1,10 +1,11 @@
 import { useContext, type ReactNode } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { HeaderShownContext } from 'expo-router/react-navigation';
 import { Appbar } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useAppTheme, spacing } from '@/lib/theme';
+import { AppRefreshControl } from './AppRefreshControl';
 
 type ScreenProps = {
   children: ReactNode;
@@ -12,7 +13,8 @@ type ScreenProps = {
   back?: boolean;
   scroll?: boolean;
   refreshing?: boolean;
-  onRefresh?: () => void;
+  // May return a promise; the pull spinner stops when it settles and the data is back.
+  onRefresh?: () => unknown;
   // Stays pinned under the content, for a screen's main actions.
   footer?: ReactNode;
 };
@@ -42,14 +44,7 @@ export function Screen({ children, title, back, scroll, refreshing, onRefresh, f
           style={[styles.scroll, background]}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            onRefresh ? (
-              <RefreshControl
-                refreshing={!!refreshing}
-                onRefresh={onRefresh}
-                colors={[theme.colors.primary]}
-                tintColor={theme.colors.primary}
-              />
-            ) : undefined
+            onRefresh ? <AppRefreshControl refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined
           }
         >
           {children}
