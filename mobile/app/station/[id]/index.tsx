@@ -5,7 +5,8 @@ import { Chip, Menu, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth';
 import { useStation } from '@/features/map/hooks';
-import { useReviews } from '@/features/reviews/hooks';
+import { FavouriteButton } from '@/features/reviews/FavouriteButton';
+import { useFavourites, useReviews } from '@/features/reviews/hooks';
 import { ReviewCard } from '@/features/reviews/ReviewCard';
 import {
   AppButton,
@@ -25,6 +26,7 @@ export default function StationDetailsScreen() {
   const theme = useAppTheme();
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const { data: station, isLoading, isError, error, refetch } = useStation(id);
+  const favourites = useFavourites();
   const reviews = useReviews(id);
 
   if (isLoading) return <LoadingView />;
@@ -48,7 +50,7 @@ export default function StationDetailsScreen() {
   }
 
   return (
-    <Screen scroll title={station.name}>
+    <Screen scroll title={station.name} back>
       {station.photos.length > 0 ? (
         <ScrollView horizontal pagingEnabled style={styles.carousel}>
           {station.photos.map((photo) => (
@@ -69,7 +71,20 @@ export default function StationDetailsScreen() {
           status={station.availableCount > 0 ? 'available' : 'busy'}
           count={`${station.availableCount}/${station.chargerCount}`}
         />
+        {user?.role === 'customer' && favourites.data ? (
+          <FavouriteButton
+            station={station}
+            saved={favourites.data.some((favourite) => favourite.id === station.id)}
+          />
+        ) : null}
       </View>
+      {user?.role === 'customer' && favourites.isError && !favourites.data ? (
+        <AppButton
+          label="Retry loading favourites"
+          mode="text"
+          onPress={() => void favourites.refetch()}
+        />
+      ) : null}
       <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
         {station.address}
       </Text>

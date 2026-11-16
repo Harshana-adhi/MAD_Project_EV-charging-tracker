@@ -4,4 +4,4 @@ import * as mock from './api.mock';
 
 const api = USE_MOCKS ? mock : real;
 
-export const { listReviews, addReview } = api;
+export const { listReviews, addReview, listFavourites, toggleFavourite } = api;

@@ -1,9 +1,38 @@
 import { getCurrentMockUser } from '@/mocks/currentUser';
 import { mockStationDetail } from '@/mocks/fixtures';
 import { getMockStationReviews, hasMockReview, saveMockReview } from '@/mocks/reviews';
+import { listStations } from '@/features/map/api.mock';
 import { getSession } from '@/features/session/api.mock';
-import type { Review } from '@/types/domain';
+import type { Review, StationSummary } from '@/types/domain';
 import type { ReviewInput } from './api';
+
+const mockFavourites = new Map<string, Set<string>>();
+
+function getSavedStationIds() {
+  const user = getCurrentMockUser();
+  if (user.role !== 'customer') throw new Error('NOT_ALLOWED');
+
+  const saved = mockFavourites.get(user.id) ?? new Set<string>();
+  mockFavourites.set(user.id, saved);
+  return saved;
+}
+
+export async function listFavourites(): Promise<StationSummary[]> {
+  const saved = getSavedStationIds();
+  const stations = await listStations({});
+  return stations.filter((station) => station.status === 'approved' && saved.has(station.id));
+}
+
+export async function toggleFavourite(stationId: string): Promise<{ favourite: boolean }> {
+  const saved = getSavedStationIds();
+  const stations = await listStations({});
+  if (!stations.some(({ id, status }) => id === stationId && status === 'approved')) {
+    throw new Error('NOT_FOUND');
+  }
+  if (saved.delete(stationId)) return { favourite: false };
+  saved.add(stationId);
+  return { favourite: true };
+}
 
 export async function listReviews(stationId: string): Promise<Review[]> {
   if (stationId !== mockStationDetail.id || mockStationDetail.status !== 'approved') {

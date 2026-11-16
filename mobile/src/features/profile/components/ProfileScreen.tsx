@@ -125,6 +125,14 @@ export function ProfileScreen() {
           onPress={() => router.push('/transactions')}
         />
       ) : null}
+      {role === 'customer' ? (
+        <List.Item
+          title="Favourites"
+          left={(props) => <List.Icon {...props} icon="heart-outline" />}
+          right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          onPress={() => router.push('/favourites')}
+        />
+      ) : null}
       <List.Item
         title="Notifications"
         left={(props) => <List.Icon {...props} icon="bell" />}
