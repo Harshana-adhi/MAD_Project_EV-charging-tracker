@@ -200,7 +200,7 @@ export default function StationDetailsScreen() {
           <Menu.Item onPress={() => openDirections('google')} title="Google Maps" leadingIcon="google-maps" />
           <Menu.Item onPress={() => openDirections('waze')} title="Waze" leadingIcon="map-marker-path" />
         </Menu>
-        <AppButton label="Charge here" onPress={chargeHere} />
+        {user?.role !== 'owner' ? <AppButton label="Charge here" onPress={chargeHere} /> : null}
       </View>
       {isCustomer ? (
         <AppButton

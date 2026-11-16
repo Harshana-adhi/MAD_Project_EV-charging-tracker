@@ -19,6 +19,8 @@ export default function OwnerTabsLayout() {
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarActiveBackgroundColor: theme.colors.secondaryContainer,
         tabBarStyle: { backgroundColor: theme.colors.surface },
+        tabBarLabelStyle: { fontSize: 10 },
+        tabBarItemStyle: { minWidth: 0, paddingHorizontal: 0 },
         headerLeft: () => <LogoMark size={26} style={{ marginLeft: spacing.md }} />,
         headerRight: () => <NotificationHeaderActions />,
       }}
@@ -38,6 +40,16 @@ export default function OwnerTabsLayout() {
           title: 'Stations',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="ev-station" color={color as string} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: 'Map',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="map-marker-radius" color={color as string} size={size} />
           ),
         }}
       />
