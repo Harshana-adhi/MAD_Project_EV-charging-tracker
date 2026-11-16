@@ -15,7 +15,7 @@ import {
 } from '@/components';
 import { BookingCalendar } from '@/features/bookings/BookingCalendar';
 import { TimeWheelPicker } from '@/features/bookings/TimeWheelPicker';
-import { useCreateBooking, useStationBookings } from '@/features/bookings/hooks';
+import { useCancelBooking, useCreateBooking, useStationBookings } from '@/features/bookings/hooks';
 import {
   TARGET_OPTIONS,
   formatMinutes,
@@ -56,6 +56,7 @@ export default function NewBookingScreen() {
   const station = useStation(stationId);
   const vehicles = useVehicles(true);
   const createBooking = useCreateBooking();
+  const cancelBooking = useCancelBooking();
 
   const [today] = useState(() => colomboDateString(new Date()));
   const lastDay = addDays(today, BOOKING_DAYS - 1);
@@ -69,6 +70,17 @@ export default function NewBookingScreen() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [pendingDay, setPendingDay] = useState(today);
   const [submitError, setSubmitError] = useState('');
+  // Shown after a booking is made, with the option to cancel it straight away.
+  const [confirmed, setConfirmed] = useState<{
+    id: string;
+    startAt: Date;
+    endAt: Date;
+    chargerLabel: string;
+    dayLabel: string;
+    limit: number;
+  } | null>(null);
+  const [askCancel, setAskCancel] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   const takenSlots = useStationBookings(stationId, day);
   const hasVehicles = (vehicles.data?.length ?? 0) > 0;
@@ -153,10 +165,30 @@ export default function NewBookingScreen() {
         durationMinutes: plan.slotMinutes,
       });
       await saveBookingTarget(booking.id, target).catch(() => undefined);
-      snackbar.show('Booking confirmed');
-      router.replace('/bookings');
+      setConfirmed({
+        id: booking.id,
+        startAt: new Date(booking.startAt),
+        endAt: new Date(booking.endAt),
+        chargerLabel: selectedCharger.label,
+        dayLabel: day === today ? 'Today' : day === addDays(today, 1) ? 'Tomorrow' : formatDay(day),
+        limit: plan.limit,
+      });
     } catch (error) {
       setSubmitError(errorMessage(error));
+    }
+  }
+
+  async function cancelJustBooked() {
+    if (!confirmed) return;
+    setCancelError('');
+    try {
+      await cancelBooking.mutateAsync(confirmed.id);
+      setAskCancel(false);
+      setConfirmed(null);
+      setTimeText('');
+      snackbar.show('Booking cancelled. The slot is free again.');
+    } catch (error) {
+      setCancelError(errorMessage(error));
     }
   }
 
@@ -541,7 +573,89 @@ export default function NewBookingScreen() {
           </View>
         </View>
       )}
+      <Portal>
+        <Dialog visible={!!confirmed && !askCancel} dismissable={false} style={styles.doneDialog}>
+          <View style={styles.doneHeader}>
+            <View style={[styles.doneIcon, { backgroundColor: theme.colors.primaryContainer }]}>
+              <MaterialCommunityIcons name="check-bold" size={30} color={theme.colors.onPrimaryContainer} />
+            </View>
+            <Text variant="headlineSmall">Booking confirmed</Text>
+          </View>
+          {confirmed ? (
+            <Dialog.Content style={styles.doneBody}>
+              <View style={[styles.doneDetails, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <DoneRow label="Where" value={`${station.data.name} · ${confirmed.chargerLabel}`} />
+                <DoneRow label="When" value={`${confirmed.dayLabel}, ${formatClock(confirmed.startAt)} – ${formatClock(confirmed.endAt)}`} />
+                <DoneRow label="Up to" value={`LKR ${Math.round(confirmed.limit).toLocaleString('en-LK')}`} />
+              </View>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                Scan the QR on {confirmed.chargerLabel} from{' '}
+                {formatClock(new Date(confirmed.startAt.getTime() - 5 * 60 * 1000))} to{' '}
+                {formatClock(new Date(confirmed.startAt.getTime() + 15 * 60 * 1000))}. Changed your mind? You can cancel
+                any time before the start, here or in My bookings.
+              </Text>
+            </Dialog.Content>
+          ) : null}
+          <Dialog.Actions style={styles.doneActions}>
+            <Button mode="contained" onPress={() => router.replace('/bookings')} style={styles.doneButton}>
+              Done
+            </Button>
+            <Button textColor={theme.colors.error} onPress={() => { setCancelError(''); setAskCancel(true); }}>
+              Cancel this booking
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog visible={!!confirmed && askCancel} onDismiss={() => setAskCancel(false)}>
+          <Dialog.Title>Cancel this booking?</Dialog.Title>
+          <Dialog.Content style={styles.doneBody}>
+            <Text variant="bodyMedium">
+              {confirmed
+                ? `${confirmed.chargerLabel}, ${
+                    confirmed.dayLabel === 'Today' || confirmed.dayLabel === 'Tomorrow'
+                      ? confirmed.dayLabel.toLowerCase()
+                      : confirmed.dayLabel
+                  } at ${formatClock(confirmed.startAt)}`
+                : ''}{' '}
+              will be
+              freed for other customers straight away. Booking is free, so nothing is charged.
+            </Text>
+            {cancelError ? (
+              <HelperText type="error" style={styles.noPad}>
+                {cancelError}
+              </HelperText>
+            ) : null}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setAskCancel(false)}>Keep booking</Button>
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              loading={cancelBooking.isPending}
+              disabled={cancelBooking.isPending}
+              onPress={() => void cancelJustBooked()}
+            >
+              Yes, cancel
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </Screen>
+  );
+}
+
+function DoneRow({ label, value }: { label: string; value: string }) {
+  const theme = useAppTheme();
+  return (
+    <View style={styles.doneRow}>
+      <Text variant="labelMedium" style={[styles.doneLabel, { color: theme.colors.onSurfaceVariant }]}>
+        {label}
+      </Text>
+      <Text variant="bodyMedium" style={styles.flex}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -567,6 +681,15 @@ function Step({ number, title, hint }: { number: number; title: string; hint?: s
 }
 
 const styles = StyleSheet.create({
+  doneDialog: { maxWidth: 420, width: '92%', alignSelf: 'center' },
+  doneHeader: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.lg, paddingBottom: spacing.sm },
+  doneIcon: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
+  doneBody: { gap: spacing.md },
+  doneDetails: { borderRadius: 12, padding: spacing.md, gap: spacing.sm },
+  doneRow: { flexDirection: 'row', gap: spacing.md },
+  doneLabel: { width: 52 },
+  doneActions: { flexDirection: 'column', alignItems: 'stretch', gap: spacing.xs, paddingHorizontal: spacing.lg },
+  doneButton: { alignSelf: 'stretch' },
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 2 },
   noPad: { paddingHorizontal: 0 },

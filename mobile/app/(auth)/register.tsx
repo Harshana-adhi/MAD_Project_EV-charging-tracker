@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, router } from 'expo-router';
-import { Text } from 'react-native-paper';
+import { router } from 'expo-router';
+import { Button, Text } from 'react-native-paper';
 import { Screen, AppTextInput, AppButton, ErrorView, Logo } from '@/components';
 import { useAuth } from '@/features/auth';
 import { useAppTheme, spacing } from '@/lib/theme';
@@ -122,12 +122,21 @@ export default function RegisterScreen() {
         />
         {submitError ? <ErrorView error={submitError} /> : null}
         <AppButton label="Create account" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
-        <Text variant="bodyMedium" style={{ marginTop: spacing.sm, textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
-          Already have an account?{' '}
-          <Link href="/(auth)/login" style={{ color: theme.colors.primary, fontWeight: '700' }}>
+        {/* A real button, so it always takes the theme colour (a link nested in text didn't on phones). */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm }}>
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+            Already have an account?
+          </Text>
+          <Button
+            mode="text"
+            compact
+            textColor={theme.colors.primary}
+            labelStyle={{ fontWeight: '700' }}
+            onPress={() => router.replace('/(auth)/login')}
+          >
             Log in
-          </Link>
-        </Text>
+          </Button>
+        </View>
       </View>
     </Screen>
   );

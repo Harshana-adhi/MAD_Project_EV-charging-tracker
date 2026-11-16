@@ -3,8 +3,8 @@ import { View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, router } from 'expo-router';
-import { Text } from 'react-native-paper';
+import { router } from 'expo-router';
+import { Button, Text } from 'react-native-paper';
 import { Screen, AppTextInput, AppButton, ErrorView, Logo } from '@/components';
 import { useAuth } from '@/features/auth';
 import { USE_MOCKS } from '@/lib/config';
@@ -84,12 +84,21 @@ export default function LoginScreen() {
             Demo accounts: owner@evct.lk, customer@evct.lk, or admin@evct.lk (any non-empty password)
           </Text>
         ) : null}
-        <Text variant="bodyMedium" style={{ marginTop: spacing.sm, textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
-          Need an account?{' '}
-          <Link href="/(auth)/register" style={{ color: theme.colors.primary, fontWeight: '700' }}>
+        {/* A real button, so it always takes the theme colour (a link nested in text didn't on phones). */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm }}>
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+            Need an account?
+          </Text>
+          <Button
+            mode="text"
+            compact
+            textColor={theme.colors.primary}
+            labelStyle={{ fontWeight: '700' }}
+            onPress={() => router.replace('/(auth)/register')}
+          >
             Register
-          </Link>
-        </Text>
+          </Button>
+        </View>
       </View>
     </Screen>
   );
