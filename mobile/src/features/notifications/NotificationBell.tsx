@@ -5,6 +5,7 @@ import { ThemeToggleButton } from '@/components';
 import { useAuth } from '@/features/auth';
 import { useAppTheme } from '@/lib/theme';
 import { useNotifications } from './hooks';
+import { RefreshButton } from './RefreshButton';
 
 export function NotificationBell({ contained }: { contained?: boolean }) {
   const { user } = useAuth();
@@ -36,6 +37,7 @@ export function NotificationBell({ contained }: { contained?: boolean }) {
 export function NotificationHeaderActions() {
   return (
     <View style={styles.actions}>
+      <RefreshButton />
       <NotificationBell />
       <ThemeToggleButton />
     </View>
