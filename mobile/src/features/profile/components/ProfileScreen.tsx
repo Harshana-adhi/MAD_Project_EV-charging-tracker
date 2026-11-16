@@ -12,6 +12,7 @@ import { useDeleteAccount, useProfile } from '../hooks';
 import { AppearanceDialog } from './AppearanceDialog';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
+import { useAdminShortcuts } from '@/features/admin/components/AdminMenu';
 
 const DELETE_ACCOUNT_MESSAGES: Record<string, string> = {
   ACTIVE_SESSION_EXISTS: 'End your active charging session before deleting your account.',
@@ -118,7 +119,7 @@ export function ProfileScreen() {
         </View>
       </View>
 
-      <Divider />
+      {role === 'admin' ? <AdminTools /> : <Divider />}
       <List.Item
         title="Edit profile"
         left={(props) => <List.Icon {...props} icon="pencil" />}
@@ -231,7 +232,43 @@ export function ProfileScreen() {
   );
 }
 
+// Admin-only shortcuts, with how many things are waiting on each.
+function AdminTools() {
+  const theme = useAppTheme();
+  const items = useAdminShortcuts().filter((item) => item.label !== 'Map');
+  return (
+    <>
+      <List.Subheader style={{ color: theme.colors.primary }}>Admin tools</List.Subheader>
+      {items.map((item) => (
+        <List.Item
+          key={item.label}
+          title={item.label}
+          description={item.hint}
+          left={(props) => <List.Icon {...props} icon={item.icon} />}
+          right={(props) => (
+            <View style={styles.adminRight}>
+              {item.count ? (
+                <View style={[styles.adminCount, { backgroundColor: theme.colors.primary }]}>
+                  <Text variant="labelSmall" style={{ color: theme.colors.onPrimary }}>
+                    {item.count} waiting
+                  </Text>
+                </View>
+              ) : null}
+              <List.Icon {...props} icon="chevron-right" />
+            </View>
+          )}
+          onPress={() => router.push(item.href)}
+        />
+      ))}
+      <Divider />
+      <List.Subheader style={{ color: theme.colors.primary }}>Account</List.Subheader>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  adminRight: { flexDirection: 'row', alignItems: 'center' },
+  adminCount: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginBottom: spacing.xl },
   headerText: { flex: 1, gap: spacing.xs },
   roleChip: { alignSelf: 'flex-start', marginTop: spacing.xs },

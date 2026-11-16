@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text, TouchableRipple } from 'react-native-paper';
 import { formatCredits } from '@/lib/format';
 import { useAppTheme, spacing } from '@/lib/theme';
-import { changePercent, periodLabel } from '../labels';
+import { changePercent, comparedToLabel, periodLabel } from '../labels';
 import type { IncomeRow as IncomeRowData } from '../types';
 
 type IncomeRowProps = {
@@ -15,6 +15,13 @@ type IncomeRowProps = {
 export function IncomeRow({ row, previous, maxIncome, onPress }: IncomeRowProps) {
   const theme = useAppTheme();
   const change = previous ? changePercent(row.income, previous.income) : null;
+  // Say what the change is against, instead of a bare number or dash. Nothing to compare: no label.
+  const changeText =
+    change !== null
+      ? `${change >= 0 ? '+' : '−'}${Math.abs(change)}% vs ${comparedToLabel(previous!.key)}`
+      : previous && previous.income === 0 && row.income > 0
+        ? `New · none in ${comparedToLabel(previous.key)}`
+        : null;
   const barWidth = maxIncome > 0 ? Math.max((row.income / maxIncome) * 100, row.income > 0 ? 3 : 0) : 0;
   const changeColor =
     change === null
@@ -45,9 +52,11 @@ export function IncomeRow({ row, previous, maxIncome, onPress }: IncomeRowProps)
           <Text variant="titleMedium" style={styles.amount}>
             {formatCredits(row.income)}
           </Text>
-          <Text variant="labelMedium" style={{ color: changeColor }}>
-            {change === null ? '–' : `${change >= 0 ? '+' : '−'}${Math.abs(change)}%`}
-          </Text>
+          {changeText ? (
+            <Text variant="labelSmall" style={{ color: change === null ? theme.colors.money.credit : changeColor }}>
+              {changeText}
+            </Text>
+          ) : null}
         </View>
       </View>
     </TouchableRipple>

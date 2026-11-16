@@ -37,3 +37,11 @@ export function changePercent(current: number, previous: number): number | null 
   if (previous === 0) return null;
   return Math.round(((current - previous) / previous) * 100);
 }
+
+// A short name for the period a change is compared against: "Oct", "16 Nov" or "2025".
+export function comparedToLabel(key: string): string {
+  const [year, month, day] = key.split('-');
+  if (!month) return year;
+  const monthName = MONTHS[Number(month) - 1].slice(0, 3);
+  return day ? `${Number(day)} ${monthName}` : monthName;
+}
