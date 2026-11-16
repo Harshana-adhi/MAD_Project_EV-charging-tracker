@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Card, IconButton, Modal, Portal, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -24,6 +24,7 @@ const THUMBNAIL_SIZE = 64;
 export function TopupsTab() {
   const theme = useAppTheme();
   const snackbar = useSnackbar();
+  const { width, height } = useWindowDimensions();
   const { data: topups, isLoading, isError, error, refetch } =
     useAdminTopups('pending');
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
@@ -141,7 +142,7 @@ export function TopupsTab() {
           {slipUrl ? (
             <Image
               source={{ uri: slipUrl }}
-              style={styles.slipImage}
+              style={{ width: width - spacing.lg * 2, height: height * 0.8 }}
               resizeMode="contain"
               accessibilityLabel="Bank slip"
             />
@@ -165,7 +166,6 @@ const styles = StyleSheet.create({
   thumbnail: { width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE, borderRadius: spacing.sm },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
   details: { flex: 1, gap: spacing.xs },
-  slipModal: { flex: 1, margin: spacing.lg },
-  slipImage: { flex: 1 },
+  slipModal: { margin: spacing.lg, alignItems: 'center', justifyContent: 'center' },
   closeButton: { position: 'absolute', top: spacing.sm, right: spacing.sm },
 });
