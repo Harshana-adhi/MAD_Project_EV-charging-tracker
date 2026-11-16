@@ -4,6 +4,7 @@ export { AppTextInput } from './AppTextInput';
 export { Card } from './Card';
 export { StatusBadge } from './StatusBadge';
 export { ConnectorChip } from './ConnectorChip';
+export { DateTile } from './DateTile';
 export { Credits } from './Credits';
 export { RatingStars } from './RatingStars';
 export { LoadingView } from './LoadingView';
