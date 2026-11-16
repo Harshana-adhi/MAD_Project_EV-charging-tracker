@@ -331,7 +331,27 @@ export async function endSession(id: string, customerId?: string) {
   return plainSession(session);
 }
 
+// True once the meter has delivered 0.05 kWh – the same point where the app swaps
+// "Cancel session" for "Stop charging".
+function hasStartedCharging(powerKw: number, startedAt: Date): boolean {
+  const elapsedMs = Date.now() - startedAt.getTime();
+  return (powerKw * elapsedMs * METER_SPEED) / 3_600_000 >= CANCEL_LIMIT_KWH;
+}
+
 export async function cancelSession(id: string, customerId: string) {
+  // A full refund is only for a session that has barely started. Once energy has been
+  // delivered, cancelling works like stopping: the customer pays for what was used so far
+  // and the rest of the hold is returned.
+  const started = await prisma.session.findUnique({ where: { id }, include: { charger: true } });
+  if (
+    started &&
+    started.customerId === customerId &&
+    started.status === 'active' &&
+    hasStartedCharging(started.charger.powerKw.toNumber(), started.startedAt)
+  ) {
+    return endSession(id, customerId);
+  }
+
   const { session, ownerId } = await withTx(async (tx) => {
     await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id} FOR UPDATE`;
     const current = await tx.session.findUnique({ where: { id }, include: { station: true, charger: true } });
@@ -339,10 +359,10 @@ export async function cancelSession(id: string, customerId: string) {
     if (current.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
     if (current.status !== 'active') throw new AppError('SESSION_NOT_ACTIVE', 409);
 
-    // A full refund is only for a session that has barely started – the same 0.05 kWh the app allows.
-    const elapsedMs = Date.now() - current.startedAt.getTime();
-    const deliveredKwh = (current.charger.powerKw.toNumber() * elapsedMs * METER_SPEED) / 3_600_000;
-    if (deliveredKwh >= CANCEL_LIMIT_KWH) throw new AppError('CANCEL_NOT_ALLOWED', 409);
+    // Lost the race with the check above: charging got going in the meantime.
+    if (hasStartedCharging(current.charger.powerKw.toNumber(), current.startedAt)) {
+      throw new AppError('CANCEL_NOT_ALLOWED', 409);
+    }
 
     await credit.release(tx, {
       userId: customerId,
