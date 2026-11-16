@@ -1,6 +1,13 @@
 import { getCurrentMockUser } from '@/mocks/currentUser';
 import { mockCharger, mockStationDetail } from '@/mocks/fixtures';
-import type { Booking, BookingInput, BookingWithNames, OwnerBookingWithNames, TakenSlot } from '@/types/domain';
+import type {
+  Booking,
+  BookingInput,
+  BookingWithNames,
+  OwnerBookingHistoryItem,
+  OwnerBookingWithNames,
+  TakenSlot,
+} from '@/types/domain';
 
 let bookings: Booking[] = [];
 
@@ -83,5 +90,19 @@ export async function listOwnerBookings(): Promise<OwnerBookingWithNames[]> {
       stationName: mockStationDetail.name,
       chargerLabel: mockCharger.label,
       customerName: 'Nimal Perera',
+    }));
+}
+
+export async function listOwnerBookingHistory(): Promise<OwnerBookingHistoryItem[]> {
+  return bookings
+    .filter((booking) => booking.status !== 'booked' || new Date(booking.startAt).getTime() <= Date.now())
+    .map((booking) => ({
+      ...booking,
+      stationName: mockStationDetail.name,
+      chargerLabel: mockCharger.label,
+      connector: mockCharger.connector,
+      customerName: 'Nimal Perera',
+      kwh: null,
+      earned: null,
     }));
 }

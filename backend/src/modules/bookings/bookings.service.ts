@@ -202,6 +202,50 @@ export async function cancelBooking(id: string, customerId: string) {
   return plainBooking(booking);
 }
 
+const HISTORY_DAYS = 30;
+
+// The last 30 days of bookings on an owner's chargers, newest first, in every status. A booking
+// the customer charged on also carries that session's energy and what the owner earned from it.
+export async function listOwnerBookingHistory(ownerId: string) {
+  const now = new Date();
+  const since = new Date(now.getTime() - HISTORY_DAYS * 24 * 60 * 60 * 1000);
+  const bookings = await prisma.booking.findMany({
+    where: {
+      station: { ownerId },
+      startAt: { gte: since },
+      // Still-booked future slots are the upcoming list; everything else (started, cancelled,
+      // missed or charged) belongs to history, including a cancellation for a later date.
+      OR: [{ status: { not: 'booked' } }, { startAt: { lte: now } }],
+    },
+    include: { charger: true, station: { select: { name: true } }, customer: { select: { fullName: true } } },
+    orderBy: { startAt: 'desc' },
+  });
+
+  const sessionIds = bookings.map((booking) => booking.sessionId).filter((id): id is string => !!id);
+  const sessions = sessionIds.length
+    ? await prisma.session.findMany({
+        where: { id: { in: sessionIds } },
+        select: { id: true, kwh: true, cost: true, commission: true },
+      })
+    : [];
+  const sessionById = new Map(sessions.map((session) => [session.id, session]));
+
+  return bookings.map((booking) => {
+    const session = booking.sessionId ? sessionById.get(booking.sessionId) : undefined;
+    const cost = session?.cost ? Number(session.cost) : null;
+    const commission = session?.commission ? Number(session.commission) : 0;
+    return {
+      ...plainBooking(booking),
+      stationName: booking.station.name,
+      chargerLabel: booking.charger.label,
+      connector: booking.charger.connector,
+      customerName: booking.customer.fullName,
+      kwh: session?.kwh ? Number(session.kwh) : null,
+      earned: cost === null ? null : Math.round((cost - commission) * 100) / 100,
+    };
+  });
+}
+
 export async function listOwnerBookings(ownerId: string) {
   const bookings = await prisma.booking.findMany({
     where: { station: { ownerId }, status: 'booked' },

@@ -7,6 +7,7 @@ export function bookingDayLabel(iso: string): string {
   const today = colomboDateString(new Date());
   if (day === today) return 'Today';
   if (day === addDays(today, 1)) return 'Tomorrow';
+  if (day === addDays(today, -1)) return 'Yesterday';
   return formatDay(day);
 }
 
