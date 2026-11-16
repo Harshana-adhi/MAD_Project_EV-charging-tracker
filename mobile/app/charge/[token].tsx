@@ -95,12 +95,12 @@ export default function StartSessionScreen() {
         {plugMismatch ? (
           <View style={{ gap: spacing.xs, padding: spacing.md, borderRadius: 12, backgroundColor: theme.colors.errorContainer }}>
             <Text variant="titleSmall" style={{ color: theme.colors.onErrorContainer }}>
-              This plug may not fit your car
+              This plug doesn't fit your car
             </Text>
             <Text variant="bodySmall" style={{ color: theme.colors.onErrorContainer }}>
               {point.label} is {point.connector}, but your saved vehicles use{' '}
-              {[...new Set(savedVehicles.map((vehicle) => vehicle.connector))].join(' or ')}. Check the plug, or go
-              back and scan another charger at this station.
+              {[...new Set(savedVehicles.map((vehicle) => vehicle.connector))].join(' or ')}, so charging can't start here.
+              Go back and scan a charger at this station that fits your car.
             </Text>
           </View>
         ) : null}
@@ -157,7 +157,7 @@ export default function StartSessionScreen() {
           label="Start charging"
           onPress={handleSubmit(submit)}
           loading={start.isPending}
-          disabled={start.isPending || !validLimit || shortfall > 0 || point.status !== 'available'}
+          disabled={start.isPending || !validLimit || shortfall > 0 || point.status !== 'available' || plugMismatch}
         />
       </View>
       <Portal>

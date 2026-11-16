@@ -170,6 +170,13 @@ export async function startSession(customerId: string, input: { qrToken: string;
     if (charger.status === 'offline') throw new AppError('CHARGER_OFFLINE', 409);
     if (charger.status === 'busy') throw new AppError('CHARGER_BUSY', 409);
     if (charger.status === 'walkin') throw new AppError('CHARGER_IN_USE', 409);
+
+    // A customer with saved vehicles can only start on a plug at least one of them takes.
+    // Someone with no saved vehicles (an owner charging, say) is not blocked – we can't tell.
+    const vehicles = await tx.vehicle.findMany({ where: { userId: customerId }, select: { connector: true } });
+    if (vehicles.length > 0 && !vehicles.some((vehicle) => vehicle.connector === charger.connector)) {
+      throw new AppError('CONNECTOR_MISMATCH', 409);
+    }
     const active = await tx.session.findFirst({
       where: { customerId, status: 'active' },
       select: { id: true },
