@@ -15,13 +15,15 @@ type BookingCalendarProps = {
   today: string;
   lastDay: string;
   onChange: (value: string) => void;
+  // Without its own card border, for use inside a dialog.
+  bare?: boolean;
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const toValue = (year: number, month: number, day: number) => `${year}-${pad(month + 1)}-${pad(day)}`;
 
 // A month calendar. Days before today, or after the last day bookings allow, can't be picked.
-export function BookingCalendar({ value, today, lastDay, onChange }: BookingCalendarProps) {
+export function BookingCalendar({ value, today, lastDay, onChange, bare }: BookingCalendarProps) {
   const theme = useAppTheme();
   const [shown, setShown] = useState(() => ({ year: Number(value.slice(0, 4)), month: Number(value.slice(5, 7)) - 1 }));
 
@@ -46,7 +48,13 @@ export function BookingCalendar({ value, today, lastDay, onChange }: BookingCale
   }
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
+    <View
+      style={
+        bare
+          ? styles.bare
+          : [styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]
+      }
+    >
       <View style={styles.header}>
         <IconButton icon="chevron-left" disabled={!canGoBack} onPress={() => moveMonth(-1)} accessibilityLabel="Previous month" />
         <Text variant="titleMedium">
@@ -105,6 +113,7 @@ export function BookingCalendar({ value, today, lastDay, onChange }: BookingCale
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 16, paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
+  bare: { paddingBottom: spacing.xs },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   week: { flexDirection: 'row' },
   cell: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 2 },

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Button, HelperText, SegmentedButtons, Text, TextInput } from 'react-native-paper';
+import { Button, Dialog, HelperText, Portal, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   AppButton,
@@ -61,6 +61,8 @@ export default function NewBookingScreen() {
   const [amountText, setAmountText] = useState('');
   const [day, setDay] = useState(today);
   const [timeText, setTimeText] = useState('');
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [pendingDay, setPendingDay] = useState(today);
   const [submitError, setSubmitError] = useState('');
 
   const takenSlots = useStationBookings(stationId, day);
@@ -348,15 +350,63 @@ export default function NewBookingScreen() {
           ) : null}
 
           <Step number={3} title="Date" hint="Up to 7 days ahead" />
-          <BookingCalendar
-            value={day}
-            today={today}
-            lastDay={lastDay}
-            onChange={(value) => {
-              setDay(value);
-              setSubmitError('');
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Date, ${formatDay(day)}. Change date`}
+            onPress={() => {
+              setPendingDay(day);
+              setCalendarOpen(true);
             }}
-          />
+            style={({ pressed }) => [
+              styles.dateField,
+              {
+                backgroundColor: pressed ? theme.colors.surfaceVariant : theme.colors.surface,
+                borderColor: theme.colors.primary,
+              },
+            ]}
+          >
+            <View style={[styles.dateIcon, { backgroundColor: theme.colors.primaryContainer }]}>
+              <MaterialCommunityIcons name="calendar-month" size={22} color={theme.colors.onPrimaryContainer} />
+            </View>
+            <View style={styles.flex}>
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                {dayLabel === 'Today' || dayLabel === 'Tomorrow' ? dayLabel : 'Date'}
+              </Text>
+              <Text variant="titleMedium">{formatDay(day)}</Text>
+            </View>
+            <Text variant="labelLarge" style={{ color: theme.colors.primary }}>
+              Change
+            </Text>
+          </Pressable>
+          <Portal>
+            <Dialog visible={calendarOpen} onDismiss={() => setCalendarOpen(false)} style={styles.dateDialog}>
+              <View style={[styles.dateDialogHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
+                <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                  Select date
+                </Text>
+                <Text variant="headlineSmall">{formatDay(pendingDay)}</Text>
+              </View>
+              <Dialog.Content style={styles.dateDialogBody}>
+                <BookingCalendar bare value={pendingDay} today={today} lastDay={lastDay} onChange={setPendingDay} />
+                <Text variant="bodySmall" style={[styles.dateDialogNote, { color: theme.colors.onSurfaceVariant }]}>
+                  You can book today and up to 6 days ahead.
+                </Text>
+              </Dialog.Content>
+              <Dialog.Actions>
+                <Button onPress={() => setCalendarOpen(false)}>Cancel</Button>
+                <Button
+                  mode="contained"
+                  onPress={() => {
+                    setDay(pendingDay);
+                    setSubmitError('');
+                    setCalendarOpen(false);
+                  }}
+                >
+                  OK
+                </Button>
+              </Dialog.Actions>
+            </Dialog>
+          </Portal>
 
           <Step number={4} title="Start time" hint={`${dayLabel}${plan && !plan.problem ? ` · holds ${formatMinutes(slotMinutes)}` : ''}`} />
           <View style={[styles.dayCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
@@ -527,6 +577,12 @@ const styles = StyleSheet.create({
   },
   input: { marginTop: spacing.md },
   timeProblem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  dateField: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderWidth: 1, borderRadius: 14, padding: spacing.md },
+  dateIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  dateDialog: { maxWidth: 420, width: '92%', alignSelf: 'center' },
+  dateDialogHeader: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, gap: 2 },
+  dateDialogBody: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
+  dateDialogNote: { textAlign: 'center', marginTop: spacing.xs },
   dayCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.sm },
   rangeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   rangeLabel: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 76, paddingTop: 4 },
