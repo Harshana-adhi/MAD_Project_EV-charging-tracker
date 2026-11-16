@@ -89,6 +89,12 @@ router.get(
   validate({ query: earningsQuerySchema }),
   asyncHandler(controller.getStationEarnings),
 );
+router.get('/reviews', asyncHandler(controller.listOwnerReviews));
+router.delete(
+  '/reviews/:id',
+  validate({ params: sessionIdParamsSchema }),
+  asyncHandler(controller.deleteOwnerReview),
+);
 router.get('/withdrawals', asyncHandler(controller.listMyWithdrawals));
 router.post(
   '/withdrawals',

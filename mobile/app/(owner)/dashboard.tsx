@@ -295,6 +295,13 @@ export default function OwnerDashboardScreen() {
               style={styles.actionButton}
             />
             <AppButton
+              label="Reviews"
+              icon="star-outline"
+              mode="contained-tonal"
+              onPress={() => router.push('/owner/reviews')}
+              style={styles.actionButton}
+            />
+            <AppButton
               label="Earnings"
               icon="chart-bar"
               mode="contained-tonal"

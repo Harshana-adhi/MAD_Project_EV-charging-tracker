@@ -154,6 +154,23 @@ export function useOwnerEarnings(from: string, to: string) {
   });
 }
 
+export function useOwnerReviews() {
+  return useQuery({ queryKey: ['owner', 'reviews'], queryFn: api.listOwnerReviews });
+}
+
+export function useDeleteOwnerReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteOwnerReview(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['owner', 'reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['station'] });
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+    },
+  });
+}
+
 export function useStationEarnings(from: string, to: string) {
   const queryClient = useQueryClient();
   useEffect(() => {

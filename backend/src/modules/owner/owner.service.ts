@@ -613,6 +613,47 @@ export async function getStationEarnings(ownerId: string, from?: Date, to?: Date
   });
 }
 
+function reviewerName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
+}
+
+export async function listOwnerReviews(ownerId: string) {
+  const reviews = await prisma.review.findMany({
+    where: { station: { ownerId, status: { not: 'deleted' } } },
+    include: { station: { select: { name: true } }, customer: { select: { fullName: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  return reviews.map((review) => ({
+    id: review.id,
+    stationId: review.stationId,
+    stationName: review.station.name,
+    customerName: reviewerName(review.customer.fullName),
+    rating: review.rating,
+    comment: review.comment,
+    createdAt: review.createdAt.toISOString(),
+  }));
+}
+
+export async function deleteOwnerReview(reviewId: string, owner: AuthUser) {
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+    include: { station: { select: { ownerId: true, name: true } } },
+  });
+  if (!review) throw new AppError('NOT_FOUND', 404);
+  assertOwner(review.station.ownerId, owner);
+
+  await prisma.review.delete({ where: { id: reviewId } });
+  await notify({
+    userId: review.customerId,
+    title: 'Review removed',
+    body: `Your review of ${review.station.name} was removed by the station owner.`,
+    type: 'review_removed',
+    refId: review.stationId,
+  });
+  return { id: reviewId };
+}
+
 function toWithdrawal(withdrawal: Withdrawal) {
   return {
     id: withdrawal.id,

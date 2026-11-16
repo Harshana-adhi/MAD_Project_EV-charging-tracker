@@ -172,6 +172,10 @@ export interface Review {
   createdAt: string;
 }
 
+export interface OwnerReview extends Review {
+  stationName: string;
+}
+
 export interface AppNotification {
   id: string;
   title: string;
