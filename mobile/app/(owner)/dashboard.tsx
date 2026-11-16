@@ -4,7 +4,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useWindowDimensions, View, StyleSheet } from 'react-native';
 import { Card as PaperCard, IconButton, List, Text } from 'react-native-paper';
 import {
-  AppButton,
   Card,
   EmptyState,
   ErrorView,
@@ -13,6 +12,8 @@ import {
   StatusBadge,
   useSnackbar,
 } from '@/components';
+import { useOwnerBookings } from '@/features/bookings/hooks';
+import { OwnerBookingsCard } from '@/features/bookings/OwnerBookingsCard';
 import { useOwnerEarnings, useOwnerSessions, useOwnerStations, useOwnerWallet, useSetChargerStatus, WalkinDialog } from '@/features/owner';
 import { formatClock, formatCredits } from '@/lib/format';
 import { errorMessage } from '@/lib/errors';
@@ -30,6 +31,7 @@ export default function OwnerDashboardScreen() {
   const stations = useOwnerStations();
   const wallet = useOwnerWallet();
   const sessions = useOwnerSessions();
+  const bookings = useOwnerBookings();
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const earnings = useOwnerEarnings(today, today);
   const setStatus = useSetChargerStatus();
@@ -44,7 +46,7 @@ export default function OwnerDashboardScreen() {
     : '100%';
 
   function refreshDashboard() {
-    void Promise.all([stations.refetch(), wallet.refetch(), sessions.refetch(), earnings.refetch()]);
+    void Promise.all([stations.refetch(), wallet.refetch(), sessions.refetch(), earnings.refetch(), bookings.refetch()]);
   }
 
   function countStationStatus(status: StationStatus): number {
@@ -102,6 +104,8 @@ export default function OwnerDashboardScreen() {
             Your stations, chargers and wallet summary.
           </Text>
         </View>
+
+        <OwnerBookingsCard />
 
         {stations.isLoading || wallet.isLoading ? (
           <LoadingView message="Loading dashboard data…" />
@@ -272,51 +276,6 @@ export default function OwnerDashboardScreen() {
           </>
         ) : null}
 
-        <Card title="Quick actions">
-          <View style={styles.actions}>
-            <AppButton
-              label="Add station"
-              icon="plus"
-              onPress={() => router.push('/owner/station/new')}
-              style={styles.actionButton}
-            />
-            <AppButton
-              label="My stations"
-              icon="ev-station"
-              mode="contained-tonal"
-              onPress={() => router.push('/(owner)/stations')}
-              style={styles.actionButton}
-            />
-            <AppButton
-              label="Sessions"
-              icon="lightning-bolt"
-              mode="contained-tonal"
-              onPress={() => router.push('/owner/sessions')}
-              style={styles.actionButton}
-            />
-            <AppButton
-              label="Reviews"
-              icon="star-outline"
-              mode="contained-tonal"
-              onPress={() => router.push('/owner/reviews')}
-              style={styles.actionButton}
-            />
-            <AppButton
-              label="Earnings"
-              icon="chart-bar"
-              mode="contained-tonal"
-              onPress={() => router.push('/(owner)/earnings')}
-              style={styles.actionButton}
-            />
-            <AppButton
-              label="Wallet"
-              icon="wallet-outline"
-              mode="contained-tonal"
-              onPress={() => router.push('/owner/wallet')}
-              style={styles.actionButton}
-            />
-          </View>
-        </Card>
       </View>
       {walkinCharger ? (
         <WalkinDialog onSubmit={submitWalkin} onDismiss={() => setWalkinCharger(null)} />
@@ -364,7 +323,5 @@ const styles = StyleSheet.create({
   metricCell: { minWidth: 0 },
   metricValue: { fontVariant: ['tabular-nums'], marginBottom: spacing.xs },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  actionButton: { flexGrow: 1 },
   chargerRowActions: { flexDirection: 'row', alignItems: 'center' },
 });
