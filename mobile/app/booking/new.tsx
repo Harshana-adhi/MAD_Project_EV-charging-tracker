@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { HelperText, IconButton, SegmentedButtons, Text } from 'react-native-paper';
+import { Button, Dialog, HelperText, IconButton, Portal, SegmentedButtons, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   AppButton,
@@ -49,6 +49,10 @@ export default function NewBookingScreen() {
   const [day, setDay] = useState(DAYS[0].value);
   const [selectedStart, setSelectedStart] = useState<Date | null>(null);
   const [submitError, setSubmitError] = useState('');
+  const [timeMenuOpen, setTimeMenuOpen] = useState(false);
+  const timeListRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  // Set when the time list opens, then used once by the chosen row to scroll itself into view.
+  const pendingScroll = useRef(false);
 
   const takenSlots = useStationBookings(stationId, day);
   const hasVehicles = (vehicles.data?.length ?? 0) > 0;
@@ -87,6 +91,26 @@ export default function NewBookingScreen() {
       (slot) =>
         slot.chargerId === selectedCharger.id && new Date(slot.startAt) < endAt && new Date(slot.endAt) > startAt,
     );
+  }
+
+  const freeStarts = slotStarts.filter((startAt) => !isTaken(startAt));
+  // Today: the next free times. Other days: free times from 08:00, so nobody is offered midnight.
+  const isToday = day === DAYS[0].value;
+  const daytimeStarts = freeStarts.filter((startAt) => formatTime(startAt.toISOString()) >= '08:00');
+  const quickStarts = (isToday || daytimeStarts.length === 0 ? freeStarts : daytimeStarts).slice(0, 4);
+
+  // The time list opens at the chosen time, or at the first quick pick, instead of at midnight.
+  const scrollTarget = (selectedStart ?? quickStarts[0])?.toISOString();
+
+  function openTimes() {
+    pendingScroll.current = true;
+    setTimeMenuOpen(true);
+  }
+
+  function pickTime(startAt: Date) {
+    setSelectedStart(startAt);
+    setSubmitError('');
+    setTimeMenuOpen(false);
   }
 
   function clearTime() {
@@ -384,14 +408,6 @@ export default function NewBookingScreen() {
             title="Start time"
             hint={plan && !plan.problem ? `Holds ${selectedCharger?.label} for ${formatMinutes(slotMinutes)}` : undefined}
           />
-          <View style={styles.legend}>
-            <View style={[styles.legendBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]} />
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Free</Text>
-            <View style={[styles.legendBox, { borderColor: theme.colors.outline, borderStyle: 'dashed' }]} />
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Taken</Text>
-            <View style={[styles.legendBox, { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]} />
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Yours</Text>
-          </View>
           {plan?.problem ? (
             <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
               Fix how much to charge first, then pick a time.
@@ -403,51 +419,66 @@ export default function NewBookingScreen() {
               No times left this day for a {formatMinutes(slotMinutes)} booking. Try another day or charge less.
             </Text>
           ) : (
-            slotGroups.map((group, groupIndex) => (
-              <View key={`${group.part}-${groupIndex}`} style={styles.group}>
-                <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                  {group.part}
-                </Text>
-                <View style={styles.slotGrid}>
-                  {group.starts.map((startAt) => {
-                    const taken = isTaken(startAt);
-                    const selected = selectedStart?.getTime() === startAt.getTime();
-                    const time = formatTime(startAt.toISOString());
-                    return (
-                      <Pressable
-                        key={startAt.toISOString()}
-                        disabled={taken}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected, disabled: taken }}
-                        accessibilityLabel={taken ? `${time}, taken` : time}
-                        onPress={() => {
-                          setSelectedStart(startAt);
-                          setSubmitError('');
-                        }}
-                        style={[
-                          styles.slot,
-                          selected
-                            ? { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
-                            : taken
-                              ? { borderColor: theme.colors.outline, borderStyle: 'dashed' }
-                              : { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surface },
-                        ]}
-                      >
-                        <Text
-                          variant="labelLarge"
-                          style={{
-                            color: selected ? theme.colors.onPrimary : taken ? theme.colors.outline : theme.colors.onSurface,
-                            textDecorationLine: taken ? 'line-through' : 'none',
-                          }}
-                        >
-                          {time}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+            <View style={styles.timeBlock}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Choose a start time"
+                onPress={openTimes}
+                style={[
+                  styles.dropdown,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: selectedStart ? theme.colors.primary : theme.colors.outline,
+                    borderWidth: selectedStart ? 2 : 1,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons name="clock-outline" size={22} color={theme.colors.primary} />
+                <View style={styles.flex}>
+                  <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    Start time
+                  </Text>
+                  <Text variant="titleMedium">
+                    {selectedStart && endAt
+                      ? `${formatTime(selectedStart.toISOString())} – ${formatTime(endAt.toISOString())}`
+                      : 'Select a time'}
+                  </Text>
                 </View>
-              </View>
-            ))
+                <MaterialCommunityIcons name="chevron-down" size={24} color={theme.colors.onSurfaceVariant} />
+              </Pressable>
+              {freeStarts.length > 0 ? (
+                <>
+                  <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                    {isToday ? 'Next free' : 'Quick picks'}
+                  </Text>
+                  <View style={[styles.presetRow, styles.noMarginTop]}>
+                    {quickStarts.map((startAt) => {
+                      const selected = selectedStart?.getTime() === startAt.getTime();
+                      return (
+                        <Pressable
+                          key={startAt.toISOString()}
+                          onPress={() => pickTime(startAt)}
+                          style={[
+                            styles.preset,
+                            selected
+                              ? { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
+                              : { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surface },
+                          ]}
+                        >
+                          <Text variant="labelLarge" style={{ color: selected ? theme.colors.onPrimary : theme.colors.onSurface }}>
+                            {formatTime(startAt.toISOString())}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : (
+                <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                  Every time this day is taken. Try another day.
+                </Text>
+              )}
+            </View>
           )}
 
           <View style={[styles.notice, { borderColor: theme.colors.outlineVariant }]}>
@@ -459,6 +490,74 @@ export default function NewBookingScreen() {
           </View>
         </View>
       )}
+
+      <Portal>
+        <Dialog visible={timeMenuOpen} onDismiss={() => setTimeMenuOpen(false)} style={styles.timeDialog}>
+          <Dialog.Title>Choose a start time</Dialog.Title>
+          <Dialog.ScrollArea style={styles.timeScrollArea}>
+            <ScrollView ref={timeListRef} contentContainerStyle={styles.timeList}>
+              {slotGroups.flatMap((group, groupIndex) => [
+                <Text
+                  key={`${group.part}-${groupIndex}`}
+                  variant="labelLarge"
+                  style={[styles.timeGroup, { color: theme.colors.primary }]}
+                >
+                  {group.part}
+                </Text>,
+                ...group.starts.map((startAt) => {
+                  const iso = startAt.toISOString();
+                  const taken = isTaken(startAt);
+                  const selected = selectedStart?.getTime() === startAt.getTime();
+                  const until = new Date(startAt.getTime() + slotMinutes * 60 * 1000);
+                  const time = formatTime(iso);
+                  return (
+                    <Pressable
+                      key={iso}
+                      disabled={taken}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected, disabled: taken }}
+                      accessibilityLabel={taken ? `${time}, taken` : time}
+                      onPress={() => pickTime(startAt)}
+                      onLayout={(event) => {
+                        if (!pendingScroll.current || iso !== scrollTarget) return;
+                        pendingScroll.current = false;
+                        const y = Math.max(0, event.nativeEvent.layout.y - 48);
+                        requestAnimationFrame(() => timeListRef.current?.scrollTo({ y, animated: false }));
+                      }}
+                      style={[
+                        styles.timeRow,
+                        selected ? { backgroundColor: theme.colors.primaryContainer } : null,
+                        { borderBottomColor: theme.colors.outlineVariant },
+                      ]}
+                    >
+                      <Text
+                        variant="titleMedium"
+                        style={{
+                          flex: 1,
+                          color: taken ? theme.colors.outline : selected ? theme.colors.onPrimaryContainer : theme.colors.onSurface,
+                          textDecorationLine: taken ? 'line-through' : 'none',
+                        }}
+                      >
+                        {time} – {formatTime(until.toISOString())}
+                      </Text>
+                      {taken ? (
+                        <Text variant="labelMedium" style={{ color: theme.colors.outline }}>
+                          Taken
+                        </Text>
+                      ) : selected ? (
+                        <MaterialCommunityIcons name="check" size={20} color={theme.colors.onPrimaryContainer} />
+                      ) : null}
+                    </Pressable>
+                  );
+                }),
+              ])}
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => setTimeMenuOpen(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </Screen>
   );
 }
@@ -509,6 +608,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 2 },
   noPad: { paddingHorizontal: 0 },
+  noMarginTop: { marginTop: 0 },
   stationCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 16 },
   step: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl, marginBottom: spacing.sm },
   stepNumber: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
@@ -541,11 +641,19 @@ const styles = StyleSheet.create({
   stat: { flex: 1, borderRadius: 12, padding: spacing.sm, gap: 2 },
   dayRow: { gap: spacing.sm },
   day: { width: 58, paddingVertical: spacing.sm, borderRadius: 14, borderWidth: 1, alignItems: 'center' },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm },
-  legendBox: { width: 14, height: 14, borderRadius: 4, borderWidth: 1, marginLeft: spacing.xs },
-  group: { gap: spacing.xs, marginBottom: spacing.md },
-  slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  slot: { width: '22.5%', paddingVertical: spacing.sm, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
+  timeBlock: { gap: spacing.sm },
+  dropdown: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: 14, padding: spacing.md },
+  timeDialog: { maxHeight: '80%' },
+  timeScrollArea: { paddingHorizontal: 0 },
+  timeList: { paddingBottom: spacing.sm },
+  timeGroup: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.xs },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   footer: { gap: spacing.sm },
   summary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: 12, padding: spacing.md },
   summaryCost: { alignItems: 'flex-end' },
