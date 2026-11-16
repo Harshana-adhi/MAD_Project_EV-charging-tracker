@@ -12,8 +12,7 @@ import {
   StatusBadge,
   useSnackbar,
 } from '@/components';
-import { useOwnerEarnings, useOwnerSessions, useOwnerStations, useSetChargerStatus } from '@/features/owner';
-import { useMyWallet } from '@/features/wallet/hooks';
+import { useOwnerEarnings, useOwnerSessions, useOwnerStations, useOwnerWallet, useSetChargerStatus } from '@/features/owner';
 import { formatCredits } from '@/lib/format';
 import { errorMessage } from '@/lib/errors';
 import { spacing, useAppTheme } from '@/lib/theme';
@@ -27,7 +26,7 @@ export default function OwnerDashboardScreen() {
   const snackbar = useSnackbar();
   const { width } = useWindowDimensions();
   const stations = useOwnerStations();
-  const wallet = useMyWallet();
+  const wallet = useOwnerWallet();
   const sessions = useOwnerSessions();
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const earnings = useOwnerEarnings(today, today);

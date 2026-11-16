@@ -8,6 +8,7 @@ import type {
   StationDetail,
   StationInput,
   Withdrawal,
+  Wallet,
 } from '@/types/domain';
 import type { OwnerPhotoUpload } from './api';
 
@@ -53,7 +54,10 @@ type OwnerMockData = {
   stations: StationDetail[];
   sessions: SessionWithNames[];
   withdrawals: Withdrawal[];
+  wallet: Wallet;
 };
+
+const initialOwnerWallet: Wallet = { ...mockWallet };
 
 const initialOwnerMockData: OwnerMockData = {
   stations: [approvedStation, pendingStation, rejectedStation],
@@ -81,6 +85,7 @@ const initialOwnerMockData: OwnerMockData = {
     },
   ],
   withdrawals: [],
+  wallet: { ...initialOwnerWallet },
 };
 
 const ownerDataByUserId = new Map<string, OwnerMockData>([['owner-1', initialOwnerMockData]]);
@@ -89,7 +94,7 @@ function getOwnerMockData(): OwnerMockData {
   const ownerId = getCurrentMockUser().id;
   let data = ownerDataByUserId.get(ownerId);
   if (!data) {
-    data = { stations: [], sessions: [], withdrawals: [] };
+    data = { stations: [], sessions: [], withdrawals: [], wallet: { ...initialOwnerWallet } };
     ownerDataByUserId.set(ownerId, data);
   }
   return data;
@@ -299,19 +304,28 @@ export async function listMyWithdrawals(): Promise<Withdrawal[]> {
   return getOwnerMockData().withdrawals.map((withdrawal) => ({ ...withdrawal }));
 }
 
+export async function getOwnerWallet(): Promise<Wallet> {
+  return { ...getOwnerMockData().wallet };
+}
+
 export async function requestWithdrawal(input: { amount: number; bankNote: string }): Promise<Withdrawal> {
   const data = getOwnerMockData();
   const bankNote = input.bankNote.trim();
   if (input.amount < 500 || Math.round(input.amount * 100) !== input.amount * 100 || bankNote.length < 5 || bankNote.length > 200) {
     throw new Error('VALIDATION_ERROR');
   }
-  if (input.amount > mockWallet.available) throw new Error('INSUFFICIENT_BALANCE');
+  if (input.amount > data.wallet.available) throw new Error('INSUFFICIENT_BALANCE');
   const withdrawal: Withdrawal = {
     id: `owner-withdrawal-${Date.now()}`,
     amount: input.amount,
     bankNote,
     status: 'pending',
     createdAt: new Date().toISOString(),
+  };
+  data.wallet = {
+    ...data.wallet,
+    held: data.wallet.held + input.amount,
+    available: data.wallet.available - input.amount,
   };
   data.withdrawals = [withdrawal, ...data.withdrawals];
   return withdrawal;
