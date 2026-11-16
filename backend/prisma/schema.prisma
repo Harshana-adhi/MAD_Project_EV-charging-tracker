@@ -141,7 +141,10 @@ model Charger {
 model Wallet {
   id           String        @id @default(uuid())
   userId       String?       @unique @map("user_id")
-  user         User?         @relation(fields: [userId], references: [id])
+  // A user's wallet holds real credits, so the user cannot be deleted while it exists.
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  // Exactly one wallet is the platform's (enforced by a partial unique index in the migration).
+  isPlatform   Boolean       @default(false) @map("is_platform")
   balance      Decimal       @default(0) @db.Decimal(12, 2)
   held         Decimal       @default(0) @db.Decimal(12, 2)
   updatedAt    DateTime      @updatedAt @map("updated_at")
