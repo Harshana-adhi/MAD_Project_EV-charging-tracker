@@ -1,10 +1,12 @@
 import { Redirect, Tabs, router } from 'expo-router';
+import { View } from 'react-native';
 import { IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAppTheme, spacing } from '@/lib/theme';
+import { useAppTheme } from '@/lib/theme';
 import { LoadingView, LogoMark } from '@/components';
 import { useAuth } from '@/features/auth';
 import { NotificationHeaderActions } from '@/features/notifications';
+import { AdminMenuButton } from '@/features/admin/components/AdminMenu';
 
 function BackToDashboard() {
   return (
@@ -37,7 +39,12 @@ export default function AdminTabsLayout() {
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarActiveBackgroundColor: theme.colors.secondaryContainer,
         tabBarStyle: { backgroundColor: theme.colors.surface },
-        headerLeft: () => <LogoMark size={26} style={{ marginLeft: spacing.md }} />,
+        headerLeft: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <AdminMenuButton />
+            <LogoMark size={26} />
+          </View>
+        ),
         headerRight: () => <NotificationHeaderActions />,
       }}
     >
