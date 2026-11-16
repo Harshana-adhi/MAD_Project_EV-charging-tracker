@@ -16,7 +16,7 @@ async function lockWallet(tx: Tx, userId: string | null) {
   const rows =
     userId === null
       ? await tx.$queryRaw<{ id: string; balance: Prisma.Decimal; held: Prisma.Decimal }[]>`
-          SELECT id, balance, held FROM wallets WHERE user_id IS NULL FOR UPDATE`
+          SELECT id, balance, held FROM wallets WHERE is_platform FOR UPDATE`
       : await tx.$queryRaw<{ id: string; balance: Prisma.Decimal; held: Prisma.Decimal }[]>`
           SELECT id, balance, held FROM wallets WHERE user_id = ${userId} FOR UPDATE`;
   const row = rows[0];

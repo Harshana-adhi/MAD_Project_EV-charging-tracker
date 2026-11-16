@@ -10,9 +10,9 @@ function qrToken(): string {
 }
 
 async function main() {
-  const existingPlatformWallet = await prisma.wallet.findFirst({ where: { userId: null } });
+  const existingPlatformWallet = await prisma.wallet.findFirst({ where: { isPlatform: true } });
   if (!existingPlatformWallet) {
-    await prisma.wallet.create({ data: { userId: null, balance: 0, held: 0 } });
+    await prisma.wallet.create({ data: { userId: null, isPlatform: true, balance: 0, held: 0 } });
   }
 
   const passwordHash = await hashPassword('Password123');
