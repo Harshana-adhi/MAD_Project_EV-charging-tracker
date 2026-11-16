@@ -4,6 +4,7 @@ import { validate } from '../../core/validate';
 import { asyncHandler } from '../../core/errors';
 import {
   blockUserSchema,
+  hideStationSchema,
   idParamsSchema,
   processWithdrawalSchema,
   resetPasswordSchema,
@@ -30,6 +31,12 @@ router.post(
   '/stations/:id/review',
   validate({ params: idParamsSchema, body: reviewSchema }),
   asyncHandler(controller.reviewStation),
+);
+
+router.patch(
+  '/stations/:id/hidden',
+  validate({ params: idParamsSchema, body: hideStationSchema }),
+  asyncHandler(controller.setStationHidden),
 );
 
 router.get(

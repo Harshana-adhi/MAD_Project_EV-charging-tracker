@@ -47,6 +47,19 @@ export function useReviewStation() {
   });
 }
 
+export function useSetStationHidden() {
+  const queryClient = useQueryClient();
+  const refresh = useRefreshAdminData();
+  return useMutation({
+    mutationFn: ({ id, hidden }: { id: string; hidden: boolean }) => api.setStationHidden(id, hidden),
+    onSettled: () => {
+      refresh();
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+      queryClient.invalidateQueries({ queryKey: ['station'] });
+    },
+  });
+}
+
 export function useAdminTopups(status: RequestStatus) {
   return useQuery({
     queryKey: ['admin', 'topups', status],

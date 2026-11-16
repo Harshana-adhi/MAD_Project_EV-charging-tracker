@@ -42,6 +42,16 @@ function useChargerStatusSync() {
       });
     });
   }, [queryClient]);
+
+  // A station an owner deleted or an admin hid must leave the map and lists straight away.
+  useEffect(() => {
+    return onEvent('station:changed', (payload) => {
+      const { stationId } = payload as { stationId: string };
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+      queryClient.invalidateQueries({ queryKey: ['station', stationId] });
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+    });
+  }, [queryClient]);
 }
 
 export function useStations(filters: StationFilters) {

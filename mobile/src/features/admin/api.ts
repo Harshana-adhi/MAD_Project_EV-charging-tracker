@@ -27,6 +27,10 @@ export function reviewStation(id: string, input: ReviewInput): Promise<Station> 
   return http.post(`/admin/stations/${id}/review`, input) as unknown as Promise<Station>;
 }
 
+export function setStationHidden(id: string, hidden: boolean): Promise<Station> {
+  return http.patch(`/admin/stations/${id}/hidden`, { hidden }) as unknown as Promise<Station>;
+}
+
 export function listTopups(status: RequestStatus): Promise<AdminTopup[]> {
   return http.get('/admin/topups', { params: { status } }) as unknown as Promise<AdminTopup[]>;
 }

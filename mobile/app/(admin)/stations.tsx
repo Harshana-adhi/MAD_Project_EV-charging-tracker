@@ -12,13 +12,13 @@ import {
 } from '@/components';
 import { ReasonDialog } from '@/features/admin/components/ReasonDialog';
 import { StationApprovalCard } from '@/features/admin/components/StationApprovalCard';
-import { useAdminCounts, useAdminStations, useReviewStation } from '@/features/admin/hooks';
+import { useAdminCounts, useAdminStations, useReviewStation, useSetStationHidden } from '@/features/admin/hooks';
 import { errorMessage } from '@/lib/errors';
 import { spacing } from '@/lib/theme';
 import type { AdminStation, StationStatus } from '@/types/domain';
 import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
-const STATUSES: StationStatus[] = ['pending', 'approved', 'rejected'];
+const STATUSES: StationStatus[] = ['pending', 'approved', 'rejected', 'hidden'];
 
 function isStationStatus(value: unknown): value is StationStatus {
   return STATUSES.includes(value as StationStatus);
@@ -48,11 +48,14 @@ export default function AdminStationsScreen() {
     },
     { value: 'approved', label: 'Approved' },
     { value: 'rejected', label: 'Rejected' },
+    { value: 'hidden', label: 'Hidden' },
   ];
   const { data: stations, isLoading, isError, error, refetch } =
     useAdminStations(status);
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const reviewStation = useReviewStation();
+  const setStationHidden = useSetStationHidden();
+  const [stationToHide, setStationToHide] = useState<AdminStation | null>(null);
   const [stationToApprove, setStationToApprove] = useState<AdminStation | null>(null);
   const [stationToReject, setStationToReject] = useState<AdminStation | null>(null);
 
@@ -62,6 +65,16 @@ export default function AdminStationsScreen() {
     try {
       await reviewStation.mutateAsync({ id: station.id, input: { approve, reason } });
       snackbar.show(approve ? 'Station approved' : 'Station rejected');
+    } catch (err) {
+      snackbar.show(errorMessage(err));
+    }
+  }
+
+  async function hide(station: AdminStation, hidden: boolean) {
+    setStationToHide(null);
+    try {
+      await setStationHidden.mutateAsync({ id: station.id, hidden });
+      snackbar.show(hidden ? 'Station hidden from the map' : 'Station reinstated');
     } catch (err) {
       snackbar.show(errorMessage(err));
     }
@@ -79,9 +92,11 @@ export default function AdminStationsScreen() {
         renderItem={({ item }) => (
           <StationApprovalCard
             station={item}
-            disabled={reviewStation.isPending}
+            disabled={reviewStation.isPending || setStationHidden.isPending}
             onApprove={() => setStationToApprove(item)}
             onReject={() => setStationToReject(item)}
+            onHide={() => setStationToHide(item)}
+            onReinstate={() => void hide(item, false)}
           />
         )}
         ListEmptyComponent={
@@ -116,6 +131,15 @@ export default function AdminStationsScreen() {
         confirmLabel="Approve"
         onConfirm={() => stationToApprove && review(stationToApprove, true)}
         onDismiss={() => setStationToApprove(null)}
+      />
+      <ConfirmDialog
+        visible={!!stationToHide}
+        title="Hide station?"
+        message={`${stationToHide?.name ?? 'This station'} will be removed from the map and its upcoming bookings cancelled. You can reinstate it later.`}
+        confirmLabel="Hide"
+        danger
+        onConfirm={() => stationToHide && hide(stationToHide, true)}
+        onDismiss={() => setStationToHide(null)}
       />
       {stationToReject ? (
         <ReasonDialog

@@ -17,6 +17,11 @@ export async function reviewStation(req: Request, res: Response) {
   res.json({ data: station });
 }
 
+export async function setStationHidden(req: Request, res: Response) {
+  const station = await adminService.setStationHidden(req.params.id, req.body.hidden);
+  res.json({ data: station });
+}
+
 export async function listTopups(req: Request, res: Response) {
   const topups = await adminService.listTopups(req.query.status as RequestStatus);
   res.json({ data: topups });

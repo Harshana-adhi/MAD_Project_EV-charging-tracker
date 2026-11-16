@@ -6,7 +6,7 @@ import { notify, notifyAdmins } from '../../core/notify.service';
 import { broadcast, emitToUser } from '../../core/socket';
 import { credit } from '../../core/credit.service';
 import { deleteCloudinaryAsset, uploadCloudinaryAsset } from '../../core/upload';
-import { getStationStatusCounts } from '../stations/stations.service';
+import { getStationStatusCounts, takeStationOffMap } from '../stations/stations.service';
 import { runChargerSweep } from '../../core/charger.jobs';
 import { createChargerQrToken } from './owner.crypto';
 import { connectorPowerProblem } from './owner.schema';
@@ -100,7 +100,7 @@ function toStationDetail(station: StationRelations) {
 
 async function getOwnedStation(stationId: string, user: AuthUser): Promise<Station> {
   const station = await prisma.station.findUnique({ where: { id: stationId } });
-  if (!station) throw new AppError('NOT_FOUND', 404);
+  if (!station || station.status === 'deleted') throw new AppError('NOT_FOUND', 404);
   assertOwner(station.ownerId, user);
   return station;
 }
@@ -108,7 +108,7 @@ async function getOwnedStation(stationId: string, user: AuthUser): Promise<Stati
 export async function listMyStations(ownerId: string) {
   await runChargerSweep();
   const stations = await prisma.station.findMany({
-    where: { ownerId },
+    where: { ownerId, status: { not: 'deleted' } },
     include: {
       chargers: true,
       reviews: { select: { rating: true } },
@@ -125,7 +125,7 @@ export async function getMyStationDetail(stationId: string, owner: AuthUser) {
     where: { id: stationId },
     include: { chargers: true, reviews: { select: { rating: true } } },
   });
-  if (!station) throw new AppError('NOT_FOUND', 404);
+  if (!station || station.status === 'deleted') throw new AppError('NOT_FOUND', 404);
   assertOwner(station.ownerId, owner);
   return toStationDetail(station);
 }
@@ -179,7 +179,7 @@ export async function updateStation(
   return withTx(async (tx) => {
     await tx.$queryRaw<{ id: string }[]>`SELECT id FROM stations WHERE id = ${stationId} FOR UPDATE`;
     const station = await tx.station.findUnique({ where: { id: stationId } });
-    if (!station) throw new AppError('NOT_FOUND', 404);
+    if (!station || station.status === 'deleted') throw new AppError('NOT_FOUND', 404);
     assertOwner(station.ownerId, owner);
     return tx.station.update({
       where: { id: stationId },
@@ -189,6 +189,18 @@ export async function updateStation(
       },
     });
   });
+}
+
+export async function deleteStation(stationId: string, owner: AuthUser) {
+  await getOwnedStation(stationId, owner);
+  const activeSession = await prisma.session.findFirst({
+    where: { stationId, status: 'active' },
+    select: { id: true },
+  });
+  if (activeSession) throw new AppError('STATION_HAS_ACTIVE_SESSION', 409);
+
+  await takeStationOffMap(stationId, 'deleted');
+  return { id: stationId };
 }
 
 export async function assertStationCanReceivePhoto(stationId: string, owner: AuthUser) {
@@ -269,7 +281,7 @@ export async function createCharger(stationId: string, owner: AuthUser, input: C
   const charger = await withTx(async (tx) => {
     await tx.$queryRaw<{ id: string }[]>`SELECT id FROM stations WHERE id = ${stationId} FOR UPDATE`;
     const station = await tx.station.findUnique({ where: { id: stationId } });
-    if (!station) throw new AppError('NOT_FOUND', 404);
+    if (!station || station.status === 'deleted') throw new AppError('NOT_FOUND', 404);
     assertOwner(station.ownerId, owner);
     assertPowerFitsConnector(input.connector, input.powerKw);
 

@@ -24,6 +24,11 @@ export async function updateStation(req: Request, res: Response) {
   res.json({ data: station });
 }
 
+export async function deleteStation(req: Request, res: Response) {
+  const result = await ownerService.deleteStation(req.params.id, req.user!);
+  res.json({ data: result });
+}
+
 export async function ensurePhotoSlot(req: Request, res: Response, next: NextFunction) {
   await ownerService.assertStationCanReceivePhoto(req.params.id, req.user!);
   next();

@@ -26,6 +26,8 @@ enum StationStatus {
   pending
   approved
   rejected
+  hidden
+  deleted
 }
 
 enum ChargerStatus {

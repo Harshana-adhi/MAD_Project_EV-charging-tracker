@@ -101,6 +101,11 @@ export function useDeleteCharger() {
   return useMutation({ mutationFn: (id: string) => api.deleteCharger(id), onSettled: refresh });
 }
 
+export function useDeleteStation() {
+  const refresh = useRefreshOwnerStations();
+  return useMutation({ mutationFn: (id: string) => api.deleteStation(id), onSettled: refresh });
+}
+
 export function useSetChargerStatus() {
   const refresh = useRefreshOwnerStations();
   return useMutation({

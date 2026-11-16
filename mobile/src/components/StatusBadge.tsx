@@ -19,7 +19,9 @@ type StatusValue =
   | 'booked'
   | 'expired'
   | 'used'
-  | 'walkin';
+  | 'walkin'
+  | 'hidden'
+  | 'deleted';
 
 type StatusBucket = 'available' | 'busy' | 'offline' | 'pending' | 'approved' | 'rejected';
 
@@ -40,6 +42,8 @@ const BUCKET: Record<StatusValue, StatusBucket> = {
   expired: 'rejected',
   used: 'approved',
   walkin: 'busy',
+  hidden: 'offline',
+  deleted: 'rejected',
 };
 
 const ICON: Record<StatusBucket, keyof typeof MaterialCommunityIcons.glyphMap> = {

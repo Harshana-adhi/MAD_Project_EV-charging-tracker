@@ -35,6 +35,11 @@ router.patch(
   validate({ params: stationIdParamsSchema, body: updateStationSchema }),
   asyncHandler(controller.updateStation),
 );
+router.delete(
+  '/stations/:id',
+  validate({ params: stationIdParamsSchema }),
+  asyncHandler(controller.deleteStation),
+);
 router.post(
   '/stations/:id/photos',
   validate({ params: stationIdParamsSchema }),

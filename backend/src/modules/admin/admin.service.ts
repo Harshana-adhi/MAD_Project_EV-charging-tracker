@@ -12,6 +12,7 @@ import { AppError } from '../../core/errors';
 import type { AuthUser } from '../../core/auth.middleware';
 import { hashPassword } from '../../core/password';
 import { credit } from '../../core/credit.service';
+import { broadcastStationChanged, takeStationOffMap } from '../stations/stations.service';
 import { notify } from '../../core/notify.service';
 import type { ReviewInput } from './admin.schema';
 
@@ -92,6 +93,34 @@ export async function reviewStation(stationId: string, input: ReviewInput) {
     body: input.approve
       ? `${station.name} is now visible on the map`
       : `Station rejected: ${input.reason}`,
+    type: 'station_review',
+    refId: station.id,
+    email: true,
+  });
+
+  const updated = await prisma.station.findUniqueOrThrow({ where: { id: stationId } });
+  return toStation(updated);
+}
+
+export async function setStationHidden(stationId: string, hidden: boolean) {
+  const station = await prisma.station.findUnique({ where: { id: stationId } });
+  if (!station) throw new AppError('NOT_FOUND', 404);
+  if (hidden && station.status !== 'approved') throw new AppError('ALREADY_PROCESSED', 409);
+  if (!hidden && station.status !== 'hidden') throw new AppError('ALREADY_PROCESSED', 409);
+
+  if (hidden) {
+    await takeStationOffMap(stationId, 'hidden');
+  } else {
+    await prisma.station.update({ where: { id: stationId }, data: { status: 'approved' } });
+    broadcastStationChanged(stationId, 'approved');
+  }
+
+  await notify({
+    userId: station.ownerId,
+    title: hidden ? 'Station hidden' : 'Station reinstated',
+    body: hidden
+      ? `${station.name} was hidden from the map by an admin`
+      : `${station.name} is visible on the map again`,
     type: 'station_review',
     refId: station.id,
     email: true,
