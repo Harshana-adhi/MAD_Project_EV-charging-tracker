@@ -3,6 +3,10 @@ import { config } from '../config';
 
 const resend = config.resendApiKey ? new Resend(config.resendApiKey) : null;
 
+// Hosted copy of the app icon (mobile/assets/images/icon.png), used in email headers –
+// email clients can't load local project files, so this needs a public URL.
+const LOGO_URL = 'https://res.cloudinary.com/zifdme0u/image/upload/v1794803793/branding/greencharge-logo.png';
+
 type EmailInput = {
   to: string;
   subject: string;
@@ -30,7 +34,18 @@ function buildHtml(heading: string, message: string): string {
   <body style="margin:0;padding:24px 12px;background:#F4FAF5;font-family:Arial,Helvetica,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #CBDCCF;">
       <tr>
-        <td style="background:#15803D;padding:18px 24px;color:#FFFFFF;font-size:20px;font-weight:bold;">GreenCharge</td>
+        <td style="background:#15803D;padding:18px 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="vertical-align:middle;padding-right:10px;">
+                <img src="${LOGO_URL}" width="32" height="32" alt="GreenCharge" style="display:block;border-radius:8px;">
+              </td>
+              <td style="vertical-align:middle;color:#FFFFFF;font-size:20px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">
+                GreenCharge
+              </td>
+            </tr>
+          </table>
+        </td>
       </tr>
       <tr>
         <td style="padding:24px;">
