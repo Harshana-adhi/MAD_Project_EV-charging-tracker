@@ -12,3 +12,7 @@ export const updateProfileSchema = z.object({
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1),
+});

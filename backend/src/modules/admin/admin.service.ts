@@ -27,6 +27,7 @@ function toPublicUser(user: User) {
     phone: user.phone,
     role: user.role,
     isBlocked: user.isBlocked,
+    isDeleted: !!user.deletedAt,
     createdAt: user.createdAt,
   };
 }
@@ -248,6 +249,7 @@ export async function setUserBlocked(admin: AuthUser, userId: string, blocked: b
   const target = await prisma.user.findUnique({ where: { id: userId } });
   if (!target) throw new AppError('NOT_FOUND', 404);
   if (target.id === admin.id || target.role === 'admin') throw new AppError('NOT_ALLOWED', 403);
+  if (target.deletedAt) throw new AppError('ACCOUNT_DELETED', 409);
 
   const user = await prisma.user.update({ where: { id: userId }, data: { isBlocked: blocked } });
   return toPublicUser(user);

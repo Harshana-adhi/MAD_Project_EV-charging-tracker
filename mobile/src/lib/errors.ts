@@ -6,6 +6,8 @@ const MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: 'Please log in to continue.',
   INVALID_CREDENTIALS: 'Incorrect email or password.',
   TOKEN_EXPIRED: 'Your session expired. Please log in again.',
+  ACCOUNT_DELETED: 'This account has been deleted.',
+  STATION_HAS_ACTIVE_SESSION: 'A customer is currently charging at one of your stations. Try again once that session ends.',
   INSUFFICIENT_BALANCE: 'You don’t have enough available credits.',
   CARD_DECLINED: 'The card was declined.',
   NOT_ALLOWED: 'You’re not allowed to do that.',

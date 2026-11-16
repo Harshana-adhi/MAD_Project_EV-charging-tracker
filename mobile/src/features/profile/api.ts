@@ -13,6 +13,10 @@ export function updateProfile(input: ProfileInput): Promise<User> {
   return http.patch('/profile', input) as unknown as Promise<User>;
 }
 
+export function deleteAccount(password: string): Promise<{ ok: true }> {
+  return http.delete('/profile', { data: { password } }) as unknown as Promise<{ ok: true }>;
+}
+
 export function listVehicles(): Promise<Vehicle[]> {
   return http.get('/vehicles') as unknown as Promise<Vehicle[]>;
 }

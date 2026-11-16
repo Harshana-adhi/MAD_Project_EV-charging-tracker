@@ -14,7 +14,7 @@ const AVATAR_SIZE = 40;
 export function UserRow({ user, onPress }: UserRowProps) {
   const theme = useAppTheme();
   const colors = userColors(user, theme);
-  const badge = user.isBlocked ? 'Blocked' : ROLE_LABEL[user.role];
+  const badge = user.isDeleted ? 'Deleted' : user.isBlocked ? 'Terminated' : ROLE_LABEL[user.role];
 
   return (
     <TouchableRipple

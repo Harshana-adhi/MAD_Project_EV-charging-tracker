@@ -22,6 +22,7 @@ export interface User {
   phone: string | null;
   role: Role;
   isBlocked: boolean;
+  isDeleted: boolean;
   createdAt: string;
 }
 

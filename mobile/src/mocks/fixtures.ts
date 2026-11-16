@@ -20,6 +20,7 @@ export const mockUser: User = {
   phone: '0771234567',
   role: 'customer',
   isBlocked: false,
+  isDeleted: false,
   createdAt: new Date().toISOString(),
 };
 

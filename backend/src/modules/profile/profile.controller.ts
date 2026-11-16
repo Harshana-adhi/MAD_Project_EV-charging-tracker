@@ -10,3 +10,8 @@ export async function updateProfile(req: Request, res: Response) {
   const user = await profileService.updateProfile(req.user!.id, req.body);
   res.json({ data: user });
 }
+
+export async function deleteAccount(req: Request, res: Response) {
+  const result = await profileService.deleteOwnAccount(req.user!, req.body.password);
+  res.json({ data: result });
+}

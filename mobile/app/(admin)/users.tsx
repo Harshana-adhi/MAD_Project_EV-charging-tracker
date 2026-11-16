@@ -31,7 +31,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'customer', label: 'Customers' },
   { value: 'owner', label: 'Owners' },
-  { value: 'blocked', label: 'Blocked' },
+  { value: 'blocked', label: 'Terminated' },
 ];
 
 function matchesFilter(user: User, filter: Filter): boolean {
@@ -74,7 +74,7 @@ export default function AdminUsersScreen() {
   );
 
   function canBlock(target: User): boolean {
-    return target.role !== 'admin' && target.id !== currentUser?.id;
+    return target.role !== 'admin' && target.id !== currentUser?.id && !target.isDeleted;
   }
 
   async function confirmBlock() {
@@ -83,7 +83,9 @@ export default function AdminUsersScreen() {
     setUserToBlock(null);
     try {
       await setUserBlocked.mutateAsync({ id: target.id, blocked: !target.isBlocked });
-      snackbar.show(target.isBlocked ? `${target.fullName} unblocked` : `${target.fullName} blocked`);
+      snackbar.show(
+        target.isBlocked ? `${target.fullName} reactivated` : `${target.fullName} terminated`,
+      );
     } catch (err) {
       snackbar.show(errorMessage(err));
     }
@@ -171,13 +173,13 @@ export default function AdminUsersScreen() {
       ) : null}
       <ConfirmDialog
         visible={!!userToBlock}
-        title={userToBlock?.isBlocked ? 'Unblock user?' : 'Block user?'}
+        title={userToBlock?.isBlocked ? 'Reactivate account?' : 'Terminate account?'}
         message={
           userToBlock?.isBlocked
             ? `${userToBlock.fullName} will be able to log in and use the app again.`
-            : `${userToBlock?.fullName ?? 'This user'} will be logged out and unable to use the app.`
+            : `${userToBlock?.fullName ?? 'This user'} will be logged out and unable to use the app. This does not delete their account or data.`
         }
-        confirmLabel={userToBlock?.isBlocked ? 'Unblock' : 'Block'}
+        confirmLabel={userToBlock?.isBlocked ? 'Reactivate' : 'Terminate'}
         danger={userToBlock ? !userToBlock.isBlocked : false}
         onConfirm={confirmBlock}
         onDismiss={() => setUserToBlock(null)}

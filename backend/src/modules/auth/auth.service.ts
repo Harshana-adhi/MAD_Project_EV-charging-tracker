@@ -15,6 +15,7 @@ function toPublicUser(user: User) {
     phone: user.phone,
     role: user.role,
     isBlocked: user.isBlocked,
+    isDeleted: !!user.deletedAt,
     createdAt: user.createdAt,
   };
 }
