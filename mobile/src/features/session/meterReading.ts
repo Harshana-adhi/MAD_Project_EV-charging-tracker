@@ -1,5 +1,6 @@
 import type { SessionWithNames } from '@/types/domain';
 
+// Must match METER_SPEED in backend/src/modules/sessions/sessions.service.ts, which bills the session.
 const SPEED = 60;
 
 export function meterReading(session: SessionWithNames, now: number) {

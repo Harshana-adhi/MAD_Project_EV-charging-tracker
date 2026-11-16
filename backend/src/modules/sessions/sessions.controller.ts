@@ -11,7 +11,8 @@ export async function start(req: Request, res: Response) {
 }
 
 export async function end(req: Request, res: Response) {
-  res.json({ data: await service.endSession(req.params.id, req.user!.id, req.body.kwh) });
+  // The app still sends its meter reading, but the server works out the billed energy itself.
+  res.json({ data: await service.endSession(req.params.id, req.user!.id) });
 }
 
 export async function cancel(req: Request, res: Response) {
