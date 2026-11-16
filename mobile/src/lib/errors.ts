@@ -19,6 +19,7 @@ const MESSAGES: Record<string, string> = {
   CHARGER_BUSY: 'This charger is currently busy.',
   CHARGER_OFFLINE: 'This charger is offline.',
   OWN_STATION: 'You can’t charge at your own station.',
+  CONNECTOR_MISMATCH: "This charger's plug doesn't fit any of your saved vehicles. Scan a charger that fits your car.",
   CHARGER_IN_USE: 'This charger has been marked busy by the owner right now.',
   ACTIVE_SESSION_EXISTS: 'You already have an active charging session.',
   SESSION_NOT_ACTIVE: 'This session is no longer active.',
