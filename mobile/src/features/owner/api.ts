@@ -66,6 +66,11 @@ export function chargerQrValue(qrToken: string): string {
   return `evcharge://charge/${qrToken}`;
 }
 
+// Emails the charger's QR (as an image and a PNG attachment) to the owner's address.
+export function emailChargerQr(id: string): Promise<{ sentTo: string }> {
+  return http.post(`/owner/chargers/${encodeURIComponent(id)}/qr/email`) as unknown as Promise<{ sentTo: string }>;
+}
+
 export function listOwnerSessions(): Promise<SessionWithNames[]> {
   return http.get('/owner/sessions') as unknown as Promise<SessionWithNames[]>;
 }

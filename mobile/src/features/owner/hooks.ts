@@ -212,3 +212,7 @@ export function useRequestWithdrawal() {
     },
   });
 }
+
+export function useEmailChargerQr() {
+  return useMutation({ mutationFn: (id: string) => api.emailChargerQr(id) });
+}

@@ -57,6 +57,11 @@ router.patch(
   validate({ params: chargerInStationParamsSchema, body: updateChargerSchema }),
   asyncHandler(controller.updateStationCharger),
 );
+router.post(
+  '/chargers/:id/qr/email',
+  validate({ params: chargerIdParamsSchema }),
+  asyncHandler(controller.emailChargerQrCode),
+);
 router.patch(
   '/chargers/:id/status',
   validate({ params: chargerIdParamsSchema, body: chargerStatusSchema }),

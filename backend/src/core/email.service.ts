@@ -8,11 +8,21 @@ const resend = config.resendApiKey ? new Resend(config.resendApiKey) : null;
 const LOGO_URL =
   'https://res.cloudinary.com/zifdme0u/image/upload/v1794804852/branding/greencharge-email-lockup.png';
 
+type EmailAttachment = {
+  filename: string;
+  content: Buffer;
+  // When set, the file is shown inside the email (referenced as cid:<contentId>) instead of attached.
+  contentId?: string;
+};
+
 type EmailInput = {
   to: string;
   subject: string;
   heading: string;
   message: string;
+  // An inline image shown under the message, e.g. a charger's QR code.
+  image?: { contentId: string; alt: string; caption?: string };
+  attachments?: EmailAttachment[];
 };
 
 function escapeHtml(value: string): string {
@@ -23,7 +33,18 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function buildHtml(heading: string, message: string): string {
+function buildImage(image: EmailInput['image']): string {
+  if (!image) return '';
+  const caption = image.caption
+    ? `<p style="margin:8px 0 0;font-size:13px;line-height:18px;color:#46574B;">${escapeHtml(image.caption)}</p>`
+    : '';
+  return `<div style="margin:8px 0 4px;text-align:center;">
+            <img src="cid:${image.contentId}" width="260" height="260" alt="${escapeHtml(image.alt)}" style="display:inline-block;border:1px solid #CBDCCF;border-radius:12px;">
+            ${caption}
+          </div>`;
+}
+
+function buildHtml(heading: string, message: string, image?: EmailInput['image']): string {
   const paragraphs = message
     .split('\n')
     .filter((line) => line.trim() !== '')
@@ -43,6 +64,7 @@ function buildHtml(heading: string, message: string): string {
         <td style="padding:24px;">
           <h1 style="margin:0 0 16px;font-size:20px;color:#14532D;">${escapeHtml(heading)}</h1>
           ${paragraphs}
+          ${buildImage(image)}
         </td>
       </tr>
       <tr>
