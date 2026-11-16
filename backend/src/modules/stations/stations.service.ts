@@ -1,6 +1,7 @@
 import type { Charger, Station } from '@prisma/client';
 import { prisma, toNumber } from '../../core/db';
 import { AppError } from '../../core/errors';
+import { getReservedUntilByCharger } from '../bookings/bookings.service';
 
 type StationWithRelations = Station & {
   chargers: Charger[];
@@ -136,6 +137,7 @@ export async function getStationById(id: string, viewerId?: string) {
   if (!station) throw new AppError('NOT_FOUND', 404);
 
   const summary = summariseStation(station);
+  const reservedUntilByCharger = await getReservedUntilByCharger(id);
   const chargers = station.chargers.map((c) => ({
     id: c.id,
     stationId: c.stationId,
@@ -145,6 +147,7 @@ export async function getStationById(id: string, viewerId?: string) {
     ratePerKwh: toNumber(c.ratePerKwh),
     status: c.status,
     qrToken: c.qrToken,
+    reservedUntil: reservedUntilByCharger[c.id] ?? null,
   }));
 
   let isFavourite: boolean | undefined;

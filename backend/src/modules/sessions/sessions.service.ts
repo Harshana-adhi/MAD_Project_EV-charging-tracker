@@ -4,7 +4,10 @@ import { AppError } from '../../core/errors';
 import { credit } from '../../core/credit.service';
 import { notify } from '../../core/notify.service';
 import { broadcast, emitToUser } from '../../core/socket';
+import { runBookingSweep } from '../../core/booking.jobs';
 import { getStationStatusCounts } from '../stations/stations.service';
+import { broadcastBookingChanged } from '../bookings/slots';
+import { findGuardingBooking } from '../bookings/bookings.service';
 import type { AuthUser } from '../../core/auth.middleware';
 
 const sessionInclude = {
@@ -115,6 +118,13 @@ export async function getChargerByQr(qrToken: string, customerId: string) {
 }
 
 export async function startSession(customerId: string, input: { qrToken: string; spendingLimit: number }) {
+  const chargerForSweep = await prisma.charger.findUnique({
+    where: { qrToken: input.qrToken },
+    select: { id: true },
+  });
+  if (chargerForSweep) await runBookingSweep();
+
+  let usedBooking: { id: string; chargerId: string; stationId: string; startAt: Date } | null = null;
   const { session, ownerId } = await withTx(async (tx) => {
     // These locks prevent concurrent starts by one customer or on one charger.
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${customerId} FOR UPDATE`;
@@ -133,6 +143,14 @@ export async function startSession(customerId: string, input: { qrToken: string;
     });
     if (active) throw new AppError('ACTIVE_SESSION_EXISTS', 409);
 
+    // A booking guards its charger from start-5min to the end of the slot – someone
+    // else's booking blocks this scan outright; the customer's own booking lets it
+    // through and is marked used below once the session exists.
+    const guarding = await findGuardingBooking(tx, charger.id, new Date());
+    if (guarding && guarding.customerId !== customerId) {
+      throw new AppError('CHARGER_RESERVED', 409);
+    }
+
     const session = await tx.session.create({
       data: {
         customerId,
@@ -149,10 +167,16 @@ export async function startSession(customerId: string, input: { qrToken: string;
       refId: session.id,
     });
     await tx.charger.update({ where: { id: charger.id }, data: { status: 'busy' } });
+
+    if (guarding && guarding.customerId === customerId) {
+      await tx.booking.update({ where: { id: guarding.id }, data: { status: 'used', sessionId: session.id } });
+      usedBooking = { id: guarding.id, chargerId: guarding.chargerId, stationId: guarding.stationId, startAt: guarding.startAt };
+    }
     return { session, ownerId: charger.station.ownerId };
   });
 
   await publishStatus(session, ownerId, 'busy');
+  if (usedBooking) broadcastBookingChanged(usedBooking.chargerId, usedBooking.stationId, usedBooking.startAt);
   await Promise.allSettled([credit.emitWalletUpdates([customerId])]);
   return plainSession(session);
 }

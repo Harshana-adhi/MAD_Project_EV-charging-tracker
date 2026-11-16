@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { config } from './config';
+import { runBookingSweep } from './core/booking.jobs';
 import { router as authRouter } from './modules/auth/auth.routes';
 import { router as walletRouter } from './modules/wallet/wallet.routes';
 import { router as profileRouter } from './modules/profile/profile.routes';
@@ -14,10 +16,27 @@ import { router as ownerRouter } from './modules/owner/owner.routes';
 import { router as sessionsRouter } from './modules/sessions/sessions.routes';
 import { router as reportsRouter } from './modules/reports/reports.routes';
 import { router as passwordRouter } from './modules/password/password.routes';
+import {
+  router as bookingsRouter,
+  stationBookingsRouter,
+  ownerBookingsRouter,
+} from './modules/bookings/bookings.routes';
 
 export const routes = Router();
 
 routes.get('/health', (req, res) => res.json({ ok: true }));
+
+// Render's free plan sleeps the app after 15 minutes idle, so the in-process 60s timer
+// (started in server.ts) can't be relied on alone. An external free cron hits this every
+// minute instead, both to wake the app up and to run the sweep directly.
+routes.post('/internal/run-booking-jobs', (req, res, next) => {
+  if (!config.cronSecret || req.header('x-cron-secret') !== config.cronSecret) {
+    return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Invalid cron secret' } });
+  }
+  runBookingSweep()
+    .then(() => res.json({ ok: true }))
+    .catch(next);
+});
 
 routes.use('/auth', authRouter);
 routes.use('/wallet', walletRouter);
@@ -27,11 +46,14 @@ routes.use('/transactions', transactionsRouter);
 routes.use('/topups', topupsRouter);
 routes.use('/admin', adminRouter);
 routes.use('/stations', stationReviewsRouter);
+routes.use('/stations', stationBookingsRouter);
 routes.use('/stations', stationsRouter);
 routes.use('/reviews', reviewsRouter);
 routes.use('/favourites', favouritesRouter);
 routes.use('/notifications', notificationsRouter);
 routes.use('/owner', ownerRouter);
+routes.use('/owner', ownerBookingsRouter);
 routes.use('/sessions', sessionsRouter);
+routes.use('/bookings', bookingsRouter);
 routes.use('/reports', reportsRouter);
 routes.use('/password', passwordRouter);

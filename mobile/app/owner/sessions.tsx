@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Dialog, Portal, SegmentedButtons, Text } from 'react-native-paper';
 import { AppButton, AppTextInput, Card, EmptyState, ErrorView, LoadingView, Screen, StatusBadge, useSnackbar } from '@/components';
+import { useOwnerBookings } from '@/features/bookings/hooks';
 import { useDisputeSession, useOwnerSessions } from '@/features/owner';
 import { errorMessage } from '@/lib/errors';
 import { formatCredits, formatDate, formatKwh } from '@/lib/format';
@@ -20,6 +21,7 @@ export default function OwnerSessionsScreen() {
   const theme = useAppTheme();
   const snackbar = useSnackbar();
   const sessions = useOwnerSessions();
+  const bookings = useOwnerBookings();
   const dispute = useDisputeSession();
   const [filter, setFilter] = useState<SessionFilter>('all');
   const [selected, setSelected] = useState<SessionWithNames | null>(null);
@@ -51,6 +53,27 @@ export default function OwnerSessionsScreen() {
   return (
     <Screen title="Owner sessions" back scroll refreshing={sessions.isRefetching} onRefresh={() => void sessions.refetch()}>
       <View style={styles.content}>
+        <Text variant="titleMedium">Upcoming bookings</Text>
+        {bookings.isLoading ? <LoadingView message="Loading bookings…" /> : null}
+        {bookings.isError ? <ErrorView error={bookings.error} onRetry={() => void bookings.refetch()} /> : null}
+        {bookings.isSuccess && bookings.data.length === 0 ? (
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+            No upcoming bookings on your stations.
+          </Text>
+        ) : null}
+        {(bookings.data ?? []).map((booking) => (
+          <Card
+            key={booking.id}
+            title={booking.stationName}
+            subtitle={`${booking.chargerLabel} · ${booking.customerName}`}
+          >
+            <Text variant="bodyMedium">Starts {formatDate(booking.startAt)}</Text>
+          </Card>
+        ))}
+
+        <Text variant="titleMedium" style={styles.sessionsTitle}>
+          Sessions
+        </Text>
         <SegmentedButtons
           value={filter}
           onValueChange={(value) => setFilter(value as SessionFilter)}
@@ -127,6 +150,7 @@ function DialogInput({ value, onChangeText, error }: { value: string; onChangeTe
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md },
+  sessionsTitle: { marginTop: spacing.lg },
   details: { gap: spacing.sm },
   dialogHint: { marginBottom: spacing.md },
   inputWrap: { gap: spacing.xs },

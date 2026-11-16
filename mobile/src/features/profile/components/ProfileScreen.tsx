@@ -109,6 +109,14 @@ export function ProfileScreen() {
           onPress={() => router.push('/vehicles')}
         />
       ) : null}
+      {role === 'customer' ? (
+        <List.Item
+          title="My bookings"
+          left={(props) => <List.Icon {...props} icon="calendar-clock" />}
+          right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          onPress={() => router.push('/bookings')}
+        />
+      ) : null}
       {role === 'owner' ? (
         <List.Item
           title="Monthly reports"

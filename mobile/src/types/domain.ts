@@ -13,6 +13,7 @@ export type TxnType =
   | 'withdrawal';
 export type RequestStatus = 'pending' | 'approved' | 'rejected';
 export type WithdrawalStatus = 'pending' | 'paid' | 'rejected';
+export type BookingStatus = 'booked' | 'cancelled' | 'expired' | 'used';
 
 export interface User {
   id: string;
@@ -63,6 +64,7 @@ export interface Charger {
   ratePerKwh: number;
   status: ChargerStatus;
   qrToken: string;
+  reservedUntil?: string | null;
 }
 
 export type ChargerInput = Pick<Charger, 'label' | 'connector' | 'powerKw' | 'ratePerKwh'>;
@@ -203,4 +205,42 @@ export interface AdminTopup extends TopupRequest {
 
 export interface AdminWithdrawal extends Withdrawal {
   ownerName: string;
+}
+
+export interface Booking {
+  id: string;
+  customerId: string;
+  chargerId: string;
+  stationId: string;
+  startAt: string;
+  endAt: string;
+  status: BookingStatus;
+  sessionId: string | null;
+  createdAt: string;
+  cancelledAt: string | null;
+}
+
+export interface BookingWithNames extends Booking {
+  stationName: string;
+  chargerLabel: string;
+  connector: ConnectorType;
+}
+
+export interface OwnerBookingWithNames extends Booking {
+  stationName: string;
+  chargerLabel: string;
+  customerName: string;
+}
+
+export type BookingInput = {
+  chargerId: string;
+  startAt: string;
+  durationMinutes: 30 | 60;
+};
+
+// A charger's taken times for one day – times only, never who booked them.
+export interface TakenSlot {
+  chargerId: string;
+  startAt: string;
+  endAt: string;
 }

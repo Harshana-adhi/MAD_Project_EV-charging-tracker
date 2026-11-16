@@ -43,6 +43,12 @@ export default function ChargingHistoryScreen() {
                 <Text variant="bodyMedium">Tap to resume your session</Text>
               </Card>
             ) : null}
+            <AppButton
+              label="My bookings"
+              mode="outlined"
+              icon="calendar-clock"
+              onPress={() => router.push('/bookings')}
+            />
             <Text variant="headlineSmall">Charging history</Text>
           </View>
         }

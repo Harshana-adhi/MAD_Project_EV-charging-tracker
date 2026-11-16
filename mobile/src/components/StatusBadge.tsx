@@ -14,7 +14,11 @@ type StatusValue =
   | 'completed'
   | 'cancelled'
   | 'disputed'
-  | 'paid';
+  | 'paid'
+  | 'reserved'
+  | 'booked'
+  | 'expired'
+  | 'used';
 
 type StatusBucket = 'available' | 'busy' | 'offline' | 'pending' | 'approved' | 'rejected';
 
@@ -30,6 +34,10 @@ const BUCKET: Record<StatusValue, StatusBucket> = {
   cancelled: 'rejected',
   disputed: 'rejected',
   paid: 'approved',
+  reserved: 'busy',
+  booked: 'busy',
+  expired: 'rejected',
+  used: 'approved',
 };
 
 const ICON: Record<StatusBucket, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -44,13 +52,14 @@ const ICON: Record<StatusBucket, keyof typeof MaterialCommunityIcons.glyphMap> =
 type StatusBadgeProps = {
   status: StatusValue;
   count?: string;
+  label?: string;
 };
 
-export function StatusBadge({ status, count }: StatusBadgeProps) {
+export function StatusBadge({ status, count, label: labelOverride }: StatusBadgeProps) {
   const theme = useAppTheme();
   const bucket = BUCKET[status];
   const colors = theme.colors.status[bucket];
-  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  const label = labelOverride ?? status.charAt(0).toUpperCase() + status.slice(1);
 
   return (
     <View style={[styles.pill, { backgroundColor: colors.bg }]}>

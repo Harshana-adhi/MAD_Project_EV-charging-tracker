@@ -53,6 +53,17 @@ export function useStations(filters: StationFilters) {
 
 export function useStation(id: string) {
   useChargerStatusSync();
+  const queryClient = useQueryClient();
+
+  useEffect(
+    () =>
+      onEvent('booking:changed', (payload) => {
+        if ((payload as { stationId?: string }).stationId !== id) return;
+        queryClient.invalidateQueries({ queryKey: ['station', id] });
+      }),
+    [queryClient, id],
+  );
+
   return useQuery({
     queryKey: ['station', id],
     queryFn: () => api.getStation(id),

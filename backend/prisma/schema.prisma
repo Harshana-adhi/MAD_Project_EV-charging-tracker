@@ -68,6 +68,13 @@ enum WithdrawalStatus {
   rejected
 }
 
+enum BookingStatus {
+  booked
+  cancelled
+  expired
+  used
+}
+
 model User {
   id            String         @id @default(uuid())
   email         String         @unique
@@ -86,6 +93,7 @@ model User {
   reviews       Review[]
   favourites    Favourite[]
   notifications Notification[]
+  bookings      Booking[]
   @@map("users")
 }
 
@@ -119,6 +127,7 @@ model Station {
   sessions     Session[]
   reviews      Review[]
   favourites   Favourite[]
+  bookings     Booking[]
   @@index([status])
   @@map("stations")
 }
@@ -135,6 +144,7 @@ model Charger {
   qrToken    String        @unique @map("qr_token")
   createdAt  DateTime      @default(now()) @map("created_at")
   sessions   Session[]
+  bookings   Booking[]
   @@map("chargers")
 }
 
@@ -250,4 +260,25 @@ model Notification {
   createdAt DateTime @default(now()) @map("created_at")
   @@index([userId, read])
   @@map("notifications")
+}
+
+model Booking {
+  id             String        @id @default(uuid())
+  customerId     String        @map("customer_id")
+  customer       User          @relation(fields: [customerId], references: [id])
+  chargerId      String        @map("charger_id")
+  charger        Charger       @relation(fields: [chargerId], references: [id])
+  stationId      String        @map("station_id")
+  station        Station       @relation(fields: [stationId], references: [id])
+  startAt        DateTime      @map("start_at") @db.Timestamptz(3)
+  endAt          DateTime      @map("end_at") @db.Timestamptz(3)
+  status         BookingStatus @default(booked)
+  sessionId      String?       @map("session_id")
+  reminderSentAt DateTime?     @map("reminder_sent_at")
+  warningSentAt  DateTime?     @map("warning_sent_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  cancelledAt    DateTime?     @map("cancelled_at")
+  @@index([chargerId, startAt])
+  @@index([customerId, status])
+  @@map("bookings")
 }

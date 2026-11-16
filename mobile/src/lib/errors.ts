@@ -22,6 +22,11 @@ const MESSAGES: Record<string, string> = {
   ALREADY_PROCESSED: 'This request has already been processed.',
   DISPUTE_WINDOW_CLOSED: 'The 24-hour dispute window has closed.',
   STATION_NOT_APPROVED: 'This station is not yet approved.',
+  SLOT_TAKEN: 'That slot was just booked by someone else. Please pick another.',
+  BOOKING_EXISTS: 'You already have an upcoming booking. Cancel it to book another slot.',
+  CHARGER_RESERVED: 'This charger is reserved for a booking right now.',
+  BOOKING_NOT_FOUND: 'That booking could not be found.',
+  BOOKING_NOT_CANCELLABLE: 'This booking can no longer be cancelled.',
   SERVER_ERROR: 'Something went wrong on our side. Please try again.',
   NETWORK_ERROR: "Can't reach the server. If this is the first request, wait a minute and try again.",
 };
