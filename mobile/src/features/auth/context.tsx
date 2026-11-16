@@ -3,6 +3,7 @@ import { setAuthToken, setUnauthorizedHandler } from '@/lib/api';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
 import { getToken, setToken as persistToken, clearToken } from '@/lib/tokenStorage';
 import { USE_MOCKS } from '@/lib/config';
+import { MIN_PRELOADER_MS } from '@/lib/preloader';
 import type { Role, User } from '@/types/domain';
 import * as real from './api';
 import * as mock from './api.mock';
@@ -48,7 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Keeps the branded preloader on screen briefly even when session resolution is instant.
-    const MIN_PRELOADER_MS = 1600;
     const startedAt = Date.now();
 
     (async () => {

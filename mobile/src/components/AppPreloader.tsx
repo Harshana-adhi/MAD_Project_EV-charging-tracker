@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LogoMark } from './Logo';
 import { spacing } from '@/lib/theme';
+import { MIN_PRELOADER_MS } from '@/lib/preloader';
 
 // Fixed brand colors (not theme-dependent): this must match app.json's native splash screen
 // exactly, light or dark mode, so there is no color flash when the JS preloader takes over.
@@ -15,24 +16,16 @@ function FillingBar() {
   const fill = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(fill, {
-          toValue: 1,
-          duration: 1100,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
-        }),
-        Animated.timing(fill, {
-          toValue: 0,
-          duration: 0,
-          delay: 150,
-          useNativeDriver: false,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
+    // A single pass, timed to the preloader's guaranteed minimum display time – never loops,
+    // so it can't look like it "restarted" even if the real session check takes a little longer.
+    const animation = Animated.timing(fill, {
+      toValue: 1,
+      duration: MIN_PRELOADER_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    });
+    animation.start();
+    return () => animation.stop();
   }, [fill]);
 
   return (
