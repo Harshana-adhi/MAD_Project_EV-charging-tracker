@@ -21,9 +21,9 @@ export function nextSevenDays(): { value: string; label: string }[] {
   });
 }
 
-type OpeningHours = { openMin: number; closeMin: number };
+export type OpeningHours = { openMin: number; closeMin: number };
 
-function parseOpeningHours(openingHours: string): OpeningHours | null {
+export function parseOpeningHours(openingHours: string): OpeningHours | null {
   const match = openingHours.trim().match(/^(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})$/);
   if (!match) return null;
   const openMin = Number(match[1]) * 60 + Number(match[2]);

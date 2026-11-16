@@ -14,6 +14,7 @@ import {
   useSnackbar,
 } from '@/components';
 import { BookingCalendar } from '@/features/bookings/BookingCalendar';
+import { DayTimeline } from '@/features/bookings/DayTimeline';
 import { useCreateBooking, useStationBookings } from '@/features/bookings/hooks';
 import {
   TARGET_OPTIONS,
@@ -31,6 +32,7 @@ import {
   formatDay,
   freeWindows,
   generateSlotStarts,
+  parseOpeningHours,
   type TimeRange,
   parseTypedTime,
 } from '@/features/bookings/slots';
@@ -111,6 +113,29 @@ export default function NewBookingScreen() {
   const openRanges = station.data ? freeWindows(station.data.openingHours, day, bookedRanges) : [];
   const rangeText = (range: TimeRange) =>
     `${formatTime(range.start.toISOString())}–${range.end >= dayEnd ? '24:00' : formatTime(range.end.toISOString())}`;
+
+  function openCalendar() {
+    setPendingDay(day);
+    setCalendarOpen(true);
+  }
+
+  // One plain sentence about the chosen port's day, so "free from 23:00" isn't misread late at night.
+  const isToday = day === today;
+  const portName = selectedCharger?.label ?? 'This port';
+  const lastFree = openRanges[openRanges.length - 1];
+  const openMinute = station.data ? (parseOpeningHours(station.data.openingHours)?.openMin ?? 0) : 0;
+  const pastSomeOpenTime = isToday && !!openRanges[0] && openRanges[0].start > colomboInstant(day, openMinute);
+  const untilText = (range: TimeRange) => (range.end >= dayEnd ? 'midnight' : formatTime(range.end.toISOString()));
+  let availabilityText: string;
+  if (openRanges.length === 0) {
+    availabilityText = `No free time left on ${portName} ${isToday ? 'today' : 'this day'}. Try another day or port.`;
+  } else if (bookedRanges.length === 0) {
+    availabilityText = pastSomeOpenTime
+      ? `No bookings yet. Earlier times today have already passed, so ${portName} is free from ${formatTime(openRanges[0].start.toISOString())} until ${untilText(lastFree)}.`
+      : `No bookings yet. ${portName} is free the whole time the station is open.`;
+  } else {
+    availabilityText = `${bookedRanges.length} booking${bookedRanges.length > 1 ? 's' : ''} on ${portName}. You can book any time in the free gaps below.`;
+  }
 
   // Checks the typed start time and says plainly what is wrong with it.
   function checkTime(): { startAt: Date | null; problem: string | null; suggestion: Date | null } {
@@ -247,6 +272,96 @@ export default function NewBookingScreen() {
         />
       ) : (
         <View>
+          <View style={[styles.bookingsCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
+            <View style={styles.bookingsHeader}>
+              <MaterialCommunityIcons name="calendar-clock" size={20} color={theme.colors.primary} />
+              <Text variant="titleMedium" style={styles.flex}>
+                Bookings
+              </Text>
+              <Button compact icon="chevron-down" contentStyle={styles.dayButton} onPress={openCalendar}>
+                {dayLabel === 'Today' || dayLabel === 'Tomorrow' ? `${dayLabel}, ${formatDay(day)}` : formatDay(day)}
+              </Button>
+            </View>
+            {takenSlots.isLoading ? (
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                Loading bookings…
+              </Text>
+            ) : takenSlots.isError ? (
+              <View style={styles.timeProblem}>
+                <Text variant="bodySmall" style={[styles.flex, { color: theme.colors.error }]}>
+                  Couldn't load the booked times. Check your connection.
+                </Text>
+                <Button compact mode="contained-tonal" onPress={() => void takenSlots.refetch()}>
+                  Retry
+                </Button>
+              </View>
+            ) : (
+              <>
+                <DayTimeline
+                  ports={station.data.chargers.map((charger) => ({
+                    id: charger.id,
+                    label: charger.label,
+                    muted: !bookable.some((item) => item.id === charger.id),
+                  }))}
+                  selectedId={selectedCharger?.id ?? null}
+                  openingHours={station.data.openingHours}
+                  dateValue={day}
+                  taken={(takenSlots.data ?? []) as TakenSlot[]}
+                />
+                <View style={[styles.portSummary, { backgroundColor: theme.colors.surfaceVariant }]}>
+                  <Text variant="titleSmall">
+                    {selectedCharger?.label} {isToday ? 'today' : dayLabel === 'Tomorrow' ? 'tomorrow' : `on ${formatDay(day)}`}
+                  </Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    {availabilityText}
+                  </Text>
+                  {bookedRanges.length > 0 ? (
+                    <View style={styles.rangeChips}>
+                      {bookedRanges.map((range) => (
+                        <View
+                          key={range.start.toISOString()}
+                          accessibilityLabel={`Booked ${rangeText(range)}`}
+                          style={[styles.rangeChip, { backgroundColor: theme.colors.errorContainer }]}
+                        >
+                          <MaterialCommunityIcons name="lock" size={12} color={theme.colors.onErrorContainer} />
+                          <Text variant="labelMedium" style={{ color: theme.colors.onErrorContainer }}>
+                            Booked {rangeText(range)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  {openRanges.length > 0 ? (
+                    <View style={styles.rangeChips}>
+                      {openRanges.map((range) => (
+                        <Pressable
+                          key={range.start.toISOString()}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Free ${rangeText(range)}, start at ${formatTime(range.start.toISOString())}`}
+                          onPress={() => {
+                            setTimeText(formatTime(range.start.toISOString()));
+                            setSubmitError('');
+                          }}
+                          style={[styles.rangeChip, { backgroundColor: theme.colors.primaryContainer }]}
+                        >
+                          <MaterialCommunityIcons name="check" size={12} color={theme.colors.onPrimaryContainer} />
+                          <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer }}>
+                            Free {rangeText(range)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                  {openRanges.length > 0 ? (
+                    <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                      Tap a free time to use it as your start time.
+                    </Text>
+                  ) : null}
+                </View>
+              </>
+            )}
+          </View>
+
           <Step number={1} title="Charging port" />
           {!hasVehicles ? (
             <Pressable onPress={() => router.push('/vehicles')} style={[styles.notice, { borderColor: theme.colors.outlineVariant }]}>
@@ -353,10 +468,7 @@ export default function NewBookingScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Date, ${formatDay(day)}. Change date`}
-            onPress={() => {
-              setPendingDay(day);
-              setCalendarOpen(true);
-            }}
+            onPress={openCalendar}
             style={({ pressed }) => [
               styles.dateField,
               {
@@ -409,88 +521,6 @@ export default function NewBookingScreen() {
           </Portal>
 
           <Step number={4} title="Start time" hint={`${dayLabel}${plan && !plan.problem ? ` · holds ${formatMinutes(slotMinutes)}` : ''}`} />
-          <View style={[styles.dayCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
-            <Text variant="labelLarge">
-              {selectedCharger?.label} on {dayLabel === 'Today' || dayLabel === 'Tomorrow' ? dayLabel.toLowerCase() : dayLabel}
-            </Text>
-            {takenSlots.isLoading ? (
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                Loading bookings…
-              </Text>
-            ) : takenSlots.isError ? (
-              <View style={styles.timeProblem}>
-                <Text variant="bodySmall" style={[styles.flex, { color: theme.colors.error }]}>
-                  Couldn't load the booked times. Check your connection.
-                </Text>
-                <Button compact mode="contained-tonal" onPress={() => void takenSlots.refetch()}>
-                  Retry
-                </Button>
-              </View>
-            ) : (
-              <>
-                <View style={styles.rangeRow}>
-                  <View style={styles.rangeLabel}>
-                    <MaterialCommunityIcons name="close-circle" size={16} color={theme.colors.error} />
-                    <Text variant="labelMedium">Booked</Text>
-                  </View>
-                  <View style={styles.rangeChips}>
-                    {bookedRanges.length === 0 ? (
-                      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                        No bookings yet
-                      </Text>
-                    ) : (
-                      bookedRanges.map((range) => (
-                        <View
-                          key={range.start.toISOString()}
-                          accessibilityLabel={`Booked ${rangeText(range)}`}
-                          style={[styles.rangeChip, { backgroundColor: theme.colors.errorContainer }]}
-                        >
-                          <Text variant="labelMedium" style={{ color: theme.colors.onErrorContainer }}>
-                            {rangeText(range)}
-                          </Text>
-                        </View>
-                      ))
-                    )}
-                  </View>
-                </View>
-                <View style={styles.rangeRow}>
-                  <View style={styles.rangeLabel}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary} />
-                    <Text variant="labelMedium">Free</Text>
-                  </View>
-                  <View style={styles.rangeChips}>
-                    {openRanges.length === 0 ? (
-                      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                        Nothing free this day
-                      </Text>
-                    ) : (
-                      openRanges.map((range) => (
-                        <Pressable
-                          key={range.start.toISOString()}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Free ${rangeText(range)}, start at ${formatTime(range.start.toISOString())}`}
-                          onPress={() => {
-                            setTimeText(formatTime(range.start.toISOString()));
-                            setSubmitError('');
-                          }}
-                          style={[styles.rangeChip, { backgroundColor: theme.colors.primaryContainer }]}
-                        >
-                          <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer }}>
-                            {rangeText(range)}
-                          </Text>
-                        </Pressable>
-                      ))
-                    )}
-                  </View>
-                </View>
-                {openRanges.length > 0 ? (
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    Tap a free time to start then, or type your own below.
-                  </Text>
-                ) : null}
-              </>
-            )}
-          </View>
           <TextInput
             mode="outlined"
             label="Start time (24-hour)"
@@ -583,11 +613,12 @@ const styles = StyleSheet.create({
   dateDialogHeader: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, gap: 2 },
   dateDialogBody: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
   dateDialogNote: { textAlign: 'center', marginTop: spacing.xs },
-  dayCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.sm },
-  rangeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  rangeLabel: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 76, paddingTop: 4 },
+  bookingsCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.md, marginTop: spacing.lg },
+  bookingsHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: -spacing.xs },
+  dayButton: { flexDirection: 'row-reverse' },
+  portSummary: { borderRadius: 12, padding: spacing.md, gap: spacing.sm },
   rangeChips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  rangeChip: { borderRadius: 8, paddingHorizontal: spacing.sm, paddingVertical: 4 },
+  rangeChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: spacing.sm, paddingVertical: 4 },
   footer: { gap: spacing.sm },
   summary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: 12, padding: spacing.md },
   summaryCost: { alignItems: 'flex-end' },
