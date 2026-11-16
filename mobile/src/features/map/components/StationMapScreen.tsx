@@ -15,7 +15,7 @@ import { MAP_STYLE_OPTIONS, useMapStyle } from '@/features/map/mapStyle';
 import { AppButton, EmptyState, ErrorView, LoadingView, ThemeToggleButton, useSnackbar } from '@/components';
 import { useAppTheme, spacing } from '@/lib/theme';
 import { DEFAULT_REGION } from '@/lib/config';
-import { NotificationBell } from '@/features/notifications';
+import { NotificationBell, RefreshButton } from '@/features/notifications';
 import type { StationFilters } from '@/types/domain';
 
 export function StationMapScreen() {
@@ -182,6 +182,7 @@ export function StationMapScreen() {
                 />
               ))}
             </Menu>
+            <RefreshButton contained />
             <NotificationBell contained />
             <ThemeToggleButton contained />
           </View>
@@ -254,6 +255,7 @@ export function StationMapScreen() {
               accessibilityLabel="Show map"
               onPress={() => setViewMode('map')}
             />
+            <RefreshButton contained />
             <NotificationBell contained />
           </View>
           {isLoading ? (
