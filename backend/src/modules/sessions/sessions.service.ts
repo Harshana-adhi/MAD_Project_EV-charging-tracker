@@ -267,7 +267,12 @@ export async function startSession(customerId: string, input: { qrToken: string;
 // customerId is omitted when the system itself ends the session (the spending limit was
 // reached) rather than the customer pressing Stop – everything else about ending it is
 // the same either way.
-export async function endSession(id: string, customerId?: string) {
+// How far back the app's own reading is trusted when the customer presses Stop. The request
+// takes a moment to arrive, and the meter must not keep billing during that time.
+const STOP_GRACE_MS = 10_000;
+
+// reportedKwh is the app's meter reading at the moment the customer pressed Stop.
+export async function endSession(id: string, customerId?: string, reportedKwh?: number) {
   const { session, ownerId, stationName, chargerLabel, kwh } = await withTx(async (tx) => {
     await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id} FOR UPDATE`;
     const current = await tx.session.findUnique({
@@ -281,13 +286,26 @@ export async function endSession(id: string, customerId?: string) {
     const endedAt = new Date();
     // Billed at the rate fixed when the session started, even if the owner changed it since.
     const ratePerKwh = (current.ratePerKwh ?? current.charger.ratePerKwh).toNumber();
-    const kwh = meteredKwh(
+    let kwh = meteredKwh(
       current.charger.powerKw.toNumber(),
       ratePerKwh,
       current.spendingLimit.toNumber(),
       current.startedAt,
       endedAt,
     );
+    // Bill up to when Stop was pressed, not when the request arrived. The app's reading is
+    // only accepted between what the meter showed STOP_GRACE_MS ago and what it shows now,
+    // so a modified app cannot report much less energy than was delivered.
+    if (reportedKwh !== undefined) {
+      const earliest = meteredKwh(
+        current.charger.powerKw.toNumber(),
+        ratePerKwh,
+        current.spendingLimit.toNumber(),
+        current.startedAt,
+        new Date(endedAt.getTime() - STOP_GRACE_MS),
+      );
+      kwh = Math.min(kwh, Math.max(reportedKwh, earliest));
+    }
     const cost = calculateCost(kwh, ratePerKwh, current.spendingLimit.toNumber());
     const { commission } = await credit.settleSession(tx, {
       sessionId: id,

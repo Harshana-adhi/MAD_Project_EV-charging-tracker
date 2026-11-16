@@ -6,13 +6,14 @@ import { formatCredits, formatDuration, formatKwh } from '@/lib/format';
 import { useAppTheme, spacing } from '@/lib/theme';
 import { meterReading } from './meterReading';
 
-export function useMeter(session: SessionWithNames) {
+// stoppedAt freezes the reading at that moment, e.g. while a stop request is on its way.
+export function useMeter(session: SessionWithNames, stoppedAt?: number | null) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
-  return meterReading(session, now);
+  return meterReading(session, stoppedAt ?? now);
 }
 
 export function Meter({ session, reading }: { session: SessionWithNames; reading: ReturnType<typeof meterReading> }) {
