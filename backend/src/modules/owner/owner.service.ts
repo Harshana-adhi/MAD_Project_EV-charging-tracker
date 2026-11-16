@@ -435,7 +435,7 @@ export async function listOwnerSessions(ownerId: string) {
 
 export async function disputeSession(sessionId: string, owner: AuthUser, reason: string) {
   const session = await withTx(async (tx) => {
-    await tx.$queryRaw<{ id: string }[]>`SELECT id FROM sessions WHERE id = ${sessionId}::uuid FOR UPDATE`;
+    await tx.$queryRaw<{ id: string }[]>`SELECT id FROM sessions WHERE id = ${sessionId} FOR UPDATE`;
     const current = await tx.session.findUnique({
       where: { id: sessionId },
       include: { station: { select: { ownerId: true } } },
