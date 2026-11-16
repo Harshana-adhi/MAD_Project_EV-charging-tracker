@@ -3,8 +3,10 @@ import { z } from 'zod';
 export const idParamsSchema = z.object({ id: z.string().uuid() });
 
 export const stationStatusQuerySchema = z.object({
-  status: z.enum(['pending', 'approved', 'rejected']).default('pending'),
+  status: z.enum(['pending', 'approved', 'rejected', 'hidden']).default('pending'),
 });
+
+export const hideStationSchema = z.object({ hidden: z.boolean() });
 
 export const topupStatusQuerySchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected']).default('pending'),

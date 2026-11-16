@@ -139,6 +139,15 @@ export async function reviewStation(id: string, input: ReviewInput): Promise<Sta
   return updated;
 }
 
+export async function setStationHidden(id: string, hidden: boolean): Promise<Station> {
+  const station = stations.find((item) => item.id === id);
+  if (!station) throw new Error('NOT_FOUND');
+  if (hidden ? station.status !== 'approved' : station.status !== 'hidden') throw new Error('ALREADY_PROCESSED');
+  const updated: AdminStation = { ...station, status: hidden ? 'hidden' : 'approved' };
+  stations = stations.map((item) => (item.id === id ? updated : item));
+  return updated;
+}
+
 export async function listTopups(status: RequestStatus): Promise<AdminTopup[]> {
   return topups.filter((topup) => topup.status === status);
 }

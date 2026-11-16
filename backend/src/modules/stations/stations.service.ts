@@ -1,8 +1,11 @@
 import type { Charger, Station } from '@prisma/client';
-import { prisma, toNumber } from '../../core/db';
+import { prisma, toNumber, withTx } from '../../core/db';
+import { notify } from '../../core/notify.service';
+import { broadcast } from '../../core/socket';
 import { AppError } from '../../core/errors';
 import { getReservedUntilByCharger } from '../bookings/bookings.service';
 import { runChargerSweep } from '../../core/charger.jobs';
+import { broadcastBookingChanged } from '../bookings/slots';
 
 type StationWithRelations = Station & {
   chargers: Charger[];
@@ -163,4 +166,35 @@ export async function getStationById(id: string, viewerId?: string) {
   }
 
   return { ...summary, chargers, isFavourite };
+}
+
+// Used when an owner deletes a station or an admin hides it: it leaves the map straight away
+// and any upcoming bookings there are cancelled, since nobody can charge at it any more.
+export async function takeStationOffMap(stationId: string, status: 'hidden' | 'deleted') {
+  const station = await prisma.station.findUniqueOrThrow({ where: { id: stationId } });
+  const cancelled = await withTx(async (tx) => {
+    await tx.station.update({ where: { id: stationId }, data: { status } });
+    const bookings = await tx.booking.findMany({ where: { stationId, status: 'booked' } });
+    await tx.booking.updateMany({
+      where: { stationId, status: 'booked' },
+      data: { status: 'cancelled', cancelledAt: new Date() },
+    });
+    return bookings;
+  });
+
+  broadcast('station:changed', { stationId, status });
+  for (const booking of cancelled) {
+    broadcastBookingChanged(booking.chargerId, booking.stationId, booking.startAt);
+    await notify({
+      userId: booking.customerId,
+      title: 'Booking cancelled',
+      body: `Your booking at ${station.name} was cancelled because the station is no longer available.`,
+      type: 'booking_cancelled',
+      refId: booking.id,
+    });
+  }
+}
+
+export function broadcastStationChanged(stationId: string, status: string) {
+  broadcast('station:changed', { stationId, status });
 }

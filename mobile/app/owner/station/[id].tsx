@@ -19,6 +19,7 @@ import {
   WalkinDialog,
   useCreateCharger,
   useDeleteCharger,
+  useDeleteStation,
   useOwnerStations,
   useSetChargerStatus,
   useUpdateCharger,
@@ -42,6 +43,8 @@ export default function EditStationScreen() {
   const createCharger = useCreateCharger();
   const updateCharger = useUpdateCharger();
   const deleteCharger = useDeleteCharger();
+  const deleteStation = useDeleteStation();
+  const [confirmDeleteStation, setConfirmDeleteStation] = useState(false);
   const setChargerStatus = useSetChargerStatus();
   const [submitError, setSubmitError] = useState<unknown>(null);
   const [chargerError, setChargerError] = useState<unknown>(null);
@@ -130,6 +133,18 @@ export default function EditStationScreen() {
     await setChargerStatus.mutateAsync({ id: walkinCharger.id, status: 'walkin', busyUntil });
     setWalkinCharger(null);
     snackbar.show('Charger marked as busy');
+  }
+
+  async function removeStation() {
+    setConfirmDeleteStation(false);
+    setChargerError(null);
+    try {
+      await deleteStation.mutateAsync(id!);
+      snackbar.show('Station deleted');
+      router.back();
+    } catch (error) {
+      setChargerError(error);
+    }
   }
 
   function openCreateCharger() {
@@ -259,6 +274,23 @@ export default function EditStationScreen() {
           danger
           onConfirm={() => void confirmDeleteCharger()}
           onDismiss={() => setChargerToDelete(null)}
+        />
+        <Divider />
+        <AppButton
+          label="Delete station"
+          icon="delete-outline"
+          danger
+          loading={deleteStation.isPending}
+          onPress={() => setConfirmDeleteStation(true)}
+        />
+        <ConfirmDialog
+          visible={confirmDeleteStation}
+          title="Delete station?"
+          message="This removes the station from the map and cancels any upcoming bookings. Past sessions and earnings stay on record. This can't be undone."
+          confirmLabel="Delete station"
+          danger
+          onConfirm={() => void removeStation()}
+          onDismiss={() => setConfirmDeleteStation(false)}
         />
         {walkinCharger ? (
           <WalkinDialog onSubmit={submitWalkin} onDismiss={() => setWalkinCharger(null)} />

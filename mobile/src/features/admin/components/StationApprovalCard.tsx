@@ -13,6 +13,8 @@ type StationApprovalCardProps = {
   disabled?: boolean;
   onApprove: () => void;
   onReject: () => void;
+  onHide: () => void;
+  onReinstate: () => void;
 };
 
 function openInMaps(station: AdminStation) {
@@ -26,6 +28,8 @@ export function StationApprovalCard({
   disabled,
   onApprove,
   onReject,
+  onHide,
+  onReinstate,
 }: StationApprovalCardProps) {
   const theme = useAppTheme();
   const secondaryText = { color: theme.colors.onSurfaceVariant };
@@ -90,6 +94,16 @@ export function StationApprovalCard({
             onReject={onReject}
             disabled={disabled}
           />
+        ) : null}
+        {station.status === 'approved' ? (
+          <Button mode="outlined" icon="eye-off-outline" textColor={theme.colors.error} disabled={disabled} onPress={onHide}>
+            Hide from map
+          </Button>
+        ) : null}
+        {station.status === 'hidden' ? (
+          <Button mode="contained-tonal" icon="eye-outline" disabled={disabled} onPress={onReinstate}>
+            Reinstate
+          </Button>
         ) : null}
       </Card.Content>
     </Card>

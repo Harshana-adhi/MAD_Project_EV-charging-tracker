@@ -233,6 +233,13 @@ export async function deleteCharger(id: string): Promise<{ id: string }> {
   return { id };
 }
 
+export async function deleteStation(id: string): Promise<{ id: string }> {
+  const data = getOwnerMockData();
+  requireStation(data, id);
+  data.stations = data.stations.filter((item) => item.id !== id);
+  return { id };
+}
+
 export async function setChargerStatus(
   id: string,
   status: 'available' | 'offline' | 'walkin',

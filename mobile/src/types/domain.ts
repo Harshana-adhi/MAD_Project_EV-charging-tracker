@@ -1,6 +1,6 @@
 export type Role = 'customer' | 'owner' | 'admin';
 export type ConnectorType = 'TYPE1' | 'TYPE2' | 'CCS2' | 'CHADEMO' | 'GBT';
-export type StationStatus = 'pending' | 'approved' | 'rejected';
+export type StationStatus = 'pending' | 'approved' | 'rejected' | 'hidden' | 'deleted';
 export type ChargerStatus = 'available' | 'busy' | 'offline' | 'walkin';
 export type SessionStatus = 'active' | 'completed' | 'cancelled' | 'disputed';
 export type TxnType =

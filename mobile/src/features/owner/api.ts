@@ -48,6 +48,10 @@ export function deleteCharger(id: string): Promise<{ id: string }> {
   return http.delete(`/owner/chargers/${id}`) as unknown as Promise<{ id: string }>;
 }
 
+export function deleteStation(id: string): Promise<{ id: string }> {
+  return http.delete(`/owner/stations/${id}`) as unknown as Promise<{ id: string }>;
+}
+
 export function setChargerStatus(
   id: string,
   status: 'available' | 'offline' | 'walkin',
