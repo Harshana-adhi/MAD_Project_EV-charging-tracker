@@ -69,7 +69,12 @@ export async function deleteCharger(req: Request, res: Response) {
 }
 
 export async function setChargerStatus(req: Request, res: Response) {
-  const charger = await ownerService.setChargerStatus(req.params.id, req.user!, req.body.status);
+  const charger = await ownerService.setChargerStatus(
+    req.params.id,
+    req.user!,
+    req.body.status,
+    req.body.busyUntil,
+  );
   res.json({ data: charger });
 }
 

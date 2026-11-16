@@ -7,7 +7,8 @@ import { api } from './index';
 type ChargerStatusPayload = {
   chargerId: string;
   stationId: string;
-  status: 'available' | 'busy' | 'offline';
+  status: 'available' | 'busy' | 'offline' | 'walkin';
+  busyUntil?: string | null;
   availableCount: number;
   onlineCount: number;
 };
@@ -17,7 +18,7 @@ function useChargerStatusSync() {
 
   useEffect(() => {
     return onEvent('charger:status', (payload) => {
-      const { stationId, chargerId, status, availableCount, onlineCount } = payload as ChargerStatusPayload;
+      const { stationId, chargerId, status, busyUntil, availableCount, onlineCount } = payload as ChargerStatusPayload;
 
       // Set the server-computed counts directly rather than incrementing/decrementing –
       // without knowing each charger's previous status, a client-side +/-1 can't tell a
@@ -35,7 +36,7 @@ function useChargerStatusSync() {
           availableCount,
           onlineCount,
           chargers: station.chargers.map((charger) =>
-            charger.id === chargerId ? { ...charger, status } : charger,
+            charger.id === chargerId ? { ...charger, status, busyUntil: busyUntil ?? null } : charger,
           ),
         };
       });

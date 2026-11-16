@@ -21,7 +21,7 @@ import {
   StatusBadge,
 } from '@/components';
 import { useAppTheme, spacing } from '@/lib/theme';
-import { formatTime } from '@/lib/format';
+import { formatClock, formatTime } from '@/lib/format';
 
 export default function StationDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -168,7 +168,16 @@ export default function StationDetailsScreen() {
                   </View>
                 ) : null}
               </View>
-              {charger.reservedUntil ? (
+              {charger.status === 'walkin' ? (
+                <StatusBadge
+                  status="walkin"
+                  label={
+                    charger.busyUntil
+                      ? `Marked busy by owner until ${formatClock(charger.busyUntil)}`
+                      : 'Marked busy by owner'
+                  }
+                />
+              ) : charger.reservedUntil ? (
                 <StatusBadge status="reserved" label={`Reserved until ${formatTime(charger.reservedUntil)}`} />
               ) : (
                 <StatusBadge status={charger.status} />

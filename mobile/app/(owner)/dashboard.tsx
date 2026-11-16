@@ -13,14 +13,14 @@ import {
   StatusBadge,
   useSnackbar,
 } from '@/components';
-import { useOwnerEarnings, useOwnerSessions, useOwnerStations, useOwnerWallet, useSetChargerStatus } from '@/features/owner';
-import { formatCredits } from '@/lib/format';
+import { useOwnerEarnings, useOwnerSessions, useOwnerStations, useOwnerWallet, useSetChargerStatus, WalkinDialog } from '@/features/owner';
+import { formatClock, formatCredits } from '@/lib/format';
 import { errorMessage } from '@/lib/errors';
 import { spacing, useAppTheme } from '@/lib/theme';
-import type { ChargerStatus, StationStatus } from '@/types/domain';
+import type { Charger, ChargerStatus, StationStatus } from '@/types/domain';
 
 const STATION_STATUSES: StationStatus[] = ['approved', 'pending', 'rejected'];
-const CHARGER_STATUSES: ChargerStatus[] = ['available', 'busy', 'offline'];
+const CHARGER_STATUSES: ChargerStatus[] = ['available', 'busy', 'offline', 'walkin'];
 
 export default function OwnerDashboardScreen() {
   const theme = useAppTheme();
@@ -33,6 +33,7 @@ export default function OwnerDashboardScreen() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const earnings = useOwnerEarnings(today, today);
   const setStatus = useSetChargerStatus();
+  const [walkinCharger, setWalkinCharger] = useState<Charger | null>(null);
   const stationData = stations.data;
   const chargers = stationData?.flatMap((station) => station.chargers) ?? [];
   const minimumMetricWidth = 180 * fontScale;
@@ -62,12 +63,29 @@ export default function OwnerDashboardScreen() {
       snackbar.show('Busy chargers cannot be changed');
       return;
     }
+    const next = status === 'offline' ? 'available' : 'offline';
     try {
-      await setStatus.mutateAsync({ id: chargerId, status: status === 'available' ? 'offline' : 'available' });
-      snackbar.show(`Charger marked ${status === 'available' ? 'offline' : 'available'}`);
+      await setStatus.mutateAsync({ id: chargerId, status: next });
+      snackbar.show(`Charger marked ${next}`);
     } catch (error) {
       snackbar.show(errorMessage(error));
     }
+  }
+
+  async function releaseCharger(chargerId: string) {
+    try {
+      await setStatus.mutateAsync({ id: chargerId, status: 'available' });
+      snackbar.show('Charger released');
+    } catch (error) {
+      snackbar.show(errorMessage(error));
+    }
+  }
+
+  async function submitWalkin(busyUntil?: string) {
+    if (!walkinCharger) return;
+    await setStatus.mutateAsync({ id: walkinCharger.id, status: 'walkin', busyUntil });
+    setWalkinCharger(null);
+    snackbar.show('Charger marked as busy');
   }
 
   return (
@@ -198,16 +216,50 @@ export default function OwnerDashboardScreen() {
                   <List.Item
                     key={charger.id}
                     title={charger.label}
-                    description={`${charger.connector} · ${charger.powerKw} kW · ${charger.status}`}
-                    left={(props) => <List.Icon {...props} icon={charger.status === 'offline' ? 'power-plug-off' : charger.status === 'busy' ? 'lightning-bolt' : 'power-plug'} />}
-                    right={() => charger.status === 'busy' ? null : (
-                      <IconButton
-                        icon={charger.status === 'available' ? 'power-plug-off' : 'power-plug'}
-                        accessibilityLabel={charger.status === 'available' ? 'Set offline' : 'Set available'}
-                        onPress={() => void toggleCharger(charger.id, charger.status)}
-                        disabled={setStatus.isPending}
+                    description={
+                      charger.status === 'walkin'
+                        ? `${charger.connector} · ${charger.powerKw} kW · marked busy${charger.busyUntil ? ` until ${formatClock(charger.busyUntil)}` : ''}`
+                        : `${charger.connector} · ${charger.powerKw} kW · ${charger.status}`
+                    }
+                    left={(props) => (
+                      <List.Icon
+                        {...props}
+                        icon={
+                          charger.status === 'offline'
+                            ? 'power-plug-off'
+                            : charger.status === 'busy' || charger.status === 'walkin'
+                              ? 'lightning-bolt'
+                              : 'power-plug'
+                        }
                       />
                     )}
+                    right={() =>
+                      charger.status === 'busy' ? null : (
+                        <View style={styles.chargerRowActions}>
+                          {charger.status === 'walkin' ? (
+                            <IconButton
+                              icon="lock-open-outline"
+                              accessibilityLabel="Release"
+                              onPress={() => void releaseCharger(charger.id)}
+                              disabled={setStatus.isPending}
+                            />
+                          ) : charger.status === 'available' ? (
+                            <IconButton
+                              icon="account-clock-outline"
+                              accessibilityLabel="Mark as busy"
+                              onPress={() => setWalkinCharger(charger)}
+                              disabled={setStatus.isPending}
+                            />
+                          ) : null}
+                          <IconButton
+                            icon={charger.status === 'offline' ? 'power-plug' : 'power-plug-off'}
+                            accessibilityLabel={charger.status === 'offline' ? 'Set available' : 'Set offline'}
+                            onPress={() => void toggleCharger(charger.id, charger.status)}
+                            disabled={setStatus.isPending}
+                          />
+                        </View>
+                      )
+                    }
                   />
                 ))
               )}
@@ -254,6 +306,9 @@ export default function OwnerDashboardScreen() {
           </View>
         </Card>
       </View>
+      {walkinCharger ? (
+        <WalkinDialog onSubmit={submitWalkin} onDismiss={() => setWalkinCharger(null)} />
+      ) : null}
     </Screen>
   );
 }
@@ -299,4 +354,5 @@ const styles = StyleSheet.create({
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   actionButton: { flexGrow: 1 },
+  chargerRowActions: { flexDirection: 'row', alignItems: 'center' },
 });
