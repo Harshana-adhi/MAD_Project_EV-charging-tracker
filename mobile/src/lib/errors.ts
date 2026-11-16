@@ -18,6 +18,7 @@ const MESSAGES: Record<string, string> = {
   EMAIL_TAKEN: 'That email is already registered.',
   CHARGER_BUSY: 'This charger is currently busy.',
   CHARGER_OFFLINE: 'This charger is offline.',
+  CHARGER_IN_USE: 'This charger has been marked busy by the owner right now.',
   ACTIVE_SESSION_EXISTS: 'You already have an active charging session.',
   SESSION_NOT_ACTIVE: 'This session is no longer active.',
   ALREADY_REVIEWED: 'You already reviewed this session.',

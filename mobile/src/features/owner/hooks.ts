@@ -104,8 +104,15 @@ export function useDeleteCharger() {
 export function useSetChargerStatus() {
   const refresh = useRefreshOwnerStations();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: 'available' | 'offline' }) =>
-      api.setChargerStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      busyUntil,
+    }: {
+      id: string;
+      status: 'available' | 'offline' | 'walkin';
+      busyUntil?: string;
+    }) => api.setChargerStatus(id, status, busyUntil),
     onSettled: refresh,
   });
 }

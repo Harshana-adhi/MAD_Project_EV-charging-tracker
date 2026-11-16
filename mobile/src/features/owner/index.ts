@@ -6,3 +6,4 @@ export * from './components/EarningsChart';
 export * from './components/OwnerStationCard';
 export * from './components/PinPicker';
 export * from './components/StationForm';
+export * from './components/WalkinDialog';

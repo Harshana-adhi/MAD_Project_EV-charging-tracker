@@ -50,9 +50,10 @@ export function deleteCharger(id: string): Promise<{ id: string }> {
 
 export function setChargerStatus(
   id: string,
-  status: 'available' | 'offline',
+  status: 'available' | 'offline' | 'walkin',
+  busyUntil?: string,
 ): Promise<Charger> {
-  return http.patch(`/owner/chargers/${id}/status`, { status }) as unknown as Promise<Charger>;
+  return http.patch(`/owner/chargers/${id}/status`, { status, busyUntil }) as unknown as Promise<Charger>;
 }
 
 export function chargerQrValue(qrToken: string): string {

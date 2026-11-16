@@ -1,7 +1,7 @@
 export type Role = 'customer' | 'owner' | 'admin';
 export type ConnectorType = 'TYPE1' | 'TYPE2' | 'CCS2' | 'CHADEMO' | 'GBT';
 export type StationStatus = 'pending' | 'approved' | 'rejected';
-export type ChargerStatus = 'available' | 'busy' | 'offline';
+export type ChargerStatus = 'available' | 'busy' | 'offline' | 'walkin';
 export type SessionStatus = 'active' | 'completed' | 'cancelled' | 'disputed';
 export type TxnType =
   | 'topup'
@@ -64,6 +64,7 @@ export interface Charger {
   powerKw: number;
   ratePerKwh: number;
   status: ChargerStatus;
+  busyUntil?: string | null;
   qrToken: string;
   reservedUntil?: string | null;
 }
