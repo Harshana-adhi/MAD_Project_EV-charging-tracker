@@ -3,10 +3,12 @@ import { app } from './app';
 import { config } from './config';
 import { initSocket } from './core/socket';
 import { startBookingJobs } from './core/booking.jobs';
+import { startSessionJobs } from './core/session.jobs';
 
 const httpServer = createServer(app);
 initSocket(httpServer);
 startBookingJobs();
+startSessionJobs();
 
 httpServer.listen(config.port, () => {
   console.log(`API listening on port ${config.port}`);

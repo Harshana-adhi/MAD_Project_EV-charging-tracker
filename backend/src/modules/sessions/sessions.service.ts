@@ -8,6 +8,7 @@ import { runBookingSweep } from '../../core/booking.jobs';
 import { getStationStatusCounts } from '../stations/stations.service';
 import { broadcastBookingChanged } from '../bookings/slots';
 import { findGuardingBooking } from '../bookings/bookings.service';
+import { cancelSessionAutoEnd, scheduleSessionAutoEnd } from '../../core/sessionTimers';
 import type { AuthUser } from '../../core/auth.middleware';
 
 const sessionInclude = {
@@ -37,6 +38,34 @@ export function meteredKwh(
   const delivered = (powerKw * elapsedMs * METER_SPEED) / 3_600_000;
   const affordable = spendingLimit / ratePerKwh;
   return Math.max(0.01, Math.floor(Math.min(delivered, affordable) * 100) / 100);
+}
+
+// Real-world milliseconds from "now" until the meter (run at METER_SPEED from startedAt)
+// reaches the energy the spending limit affords. Zero or negative means it already has.
+export function msUntilSpendingLimit(
+  powerKw: number,
+  ratePerKwh: number,
+  spendingLimit: number,
+  startedAt: Date,
+  now: Date,
+): number {
+  const affordable = spendingLimit / ratePerKwh;
+  const requiredMs = (affordable * 3_600_000) / (powerKw * METER_SPEED);
+  const elapsedMs = now.getTime() - startedAt.getTime();
+  return requiredMs - elapsedMs;
+}
+
+// meteredKwh/calculateCost round down to the cent for billing, so a capped session's cost
+// settles just under spendingLimit (e.g. 99.45, never exactly 100) – checking cost against
+// spendingLimit directly would never trigger. This compares the unrounded figures instead.
+export function hasReachedSpendingLimit(
+  powerKw: number,
+  ratePerKwh: number,
+  spendingLimit: number,
+  startedAt: Date,
+  now: Date,
+): boolean {
+  return msUntilSpendingLimit(powerKw, ratePerKwh, spendingLimit, startedAt, now) <= 0;
 }
 
 export function calculateCost(kwh: number, ratePerKwh: number, spendingLimit: number): number {
@@ -124,7 +153,7 @@ export async function startSession(customerId: string, input: { qrToken: string;
   });
   if (chargerForSweep) await runBookingSweep();
 
-  const { session, ownerId, usedBooking } = await withTx(async (tx) => {
+  const { session, ownerId, usedBooking, powerKw, ratePerKwh } = await withTx(async (tx) => {
     // These locks prevent concurrent starts by one customer or on one charger.
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${customerId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM chargers WHERE qr_token = ${input.qrToken} FOR UPDATE`;
@@ -172,16 +201,36 @@ export async function startSession(customerId: string, input: { qrToken: string;
       await tx.booking.update({ where: { id: guarding.id }, data: { status: 'used', sessionId: session.id } });
       usedBooking = { chargerId: guarding.chargerId, stationId: guarding.stationId, startAt: guarding.startAt };
     }
-    return { session, ownerId: charger.station.ownerId, usedBooking };
+    return {
+      session,
+      ownerId: charger.station.ownerId,
+      usedBooking,
+      powerKw: toNumber(charger.powerKw)!,
+      ratePerKwh: toNumber(charger.ratePerKwh)!,
+    };
   });
 
   await publishStatus(session, ownerId, 'busy');
   if (usedBooking) broadcastBookingChanged(usedBooking.chargerId, usedBooking.stationId, usedBooking.startAt);
   await Promise.allSettled([credit.emitWalletUpdates([customerId])]);
+
+  // Ends this exact session the instant its spending limit is reached, instead of
+  // waiting for the next periodic sweep – the charger frees up with no visible delay.
+  scheduleSessionAutoEnd(
+    session.id,
+    msUntilSpendingLimit(powerKw, ratePerKwh, input.spendingLimit, session.startedAt, new Date()),
+    () => {
+      endSession(session.id).catch((err) => console.error('session auto-end failed', session.id, err));
+    },
+  );
+
   return plainSession(session);
 }
 
-export async function endSession(id: string, customerId: string) {
+// customerId is omitted when the system itself ends the session (the spending limit was
+// reached) rather than the customer pressing Stop – everything else about ending it is
+// the same either way.
+export async function endSession(id: string, customerId?: string) {
   const { session, ownerId, stationName, chargerLabel, kwh } = await withTx(async (tx) => {
     await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id} FOR UPDATE`;
     const current = await tx.session.findUnique({
@@ -189,7 +238,7 @@ export async function endSession(id: string, customerId: string) {
       include: { charger: true, station: true },
     });
     if (!current) throw new AppError('SESSION_NOT_FOUND', 404);
-    if (current.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
+    if (customerId && current.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
     if (current.status !== 'active') throw new AppError('SESSION_NOT_ACTIVE', 409);
 
     const endedAt = new Date();
@@ -207,7 +256,7 @@ export async function endSession(id: string, customerId: string) {
     );
     const { commission } = await credit.settleSession(tx, {
       sessionId: id,
-      customerId,
+      customerId: current.customerId,
       ownerId: current.station.ownerId,
       heldAmount: current.spendingLimit.toNumber(),
       cost,
@@ -220,13 +269,14 @@ export async function endSession(id: string, customerId: string) {
     return { session, ownerId: current.station.ownerId, stationName: current.station.name, chargerLabel: current.charger.label, kwh };
   });
 
+  cancelSessionAutoEnd(id);
   await publishStatus(session, ownerId, 'available');
   const cost = session.cost!.toNumber();
   const commission = session.commission!.toNumber();
   await Promise.allSettled([
-    credit.emitWalletUpdates([customerId, ownerId]),
+    credit.emitWalletUpdates([session.customerId, ownerId]),
     notify({
-      userId: customerId,
+      userId: session.customerId,
       title: 'Charging session invoice',
       body: `${stationName} – ${chargerLabel}\nEnergy: ${kwh.toFixed(2)} kWh\nTotal charged: ${formatLkr(cost)}`,
       type: 'session_completed',
@@ -267,6 +317,7 @@ export async function cancelSession(id: string, customerId: string) {
     return { session, ownerId: current.station.ownerId };
   });
 
+  cancelSessionAutoEnd(id);
   await publishStatus(session, ownerId, 'available');
   await Promise.allSettled([
     credit.emitWalletUpdates([customerId]),

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { config } from './config';
 import { runBookingSweep } from './core/booking.jobs';
+import { runSessionSweep } from './core/session.jobs';
 import { router as authRouter } from './modules/auth/auth.routes';
 import { router as walletRouter } from './modules/wallet/wallet.routes';
 import { router as profileRouter } from './modules/profile/profile.routes';
@@ -26,14 +27,14 @@ export const routes = Router();
 
 routes.get('/health', (req, res) => res.json({ ok: true }));
 
-// Render's free plan sleeps the app after 15 minutes idle, so the in-process 60s timer
+// Render's free plan sleeps the app after 15 minutes idle, so the in-process timers
 // (started in server.ts) can't be relied on alone. An external free cron hits this every
-// minute instead, both to wake the app up and to run the sweep directly.
+// minute instead, both to wake the app up and to run both sweeps directly.
 routes.post('/internal/run-booking-jobs', (req, res, next) => {
   if (!config.cronSecret || req.header('x-cron-secret') !== config.cronSecret) {
     return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Invalid cron secret' } });
   }
-  runBookingSweep()
+  Promise.all([runBookingSweep(), runSessionSweep()])
     .then(() => res.json({ ok: true }))
     .catch(next);
 });

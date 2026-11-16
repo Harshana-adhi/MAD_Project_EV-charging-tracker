@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { calculateCost, meteredKwh } from './sessions.service';
+import { calculateCost, hasReachedSpendingLimit, meteredKwh } from './sessions.service';
 import { endSchema, startSchema } from './sessions.schema';
 
 test('calculates ordinary cost, two-decimal rounding, and the spending cap', () => {
@@ -28,4 +28,16 @@ test('works out billed energy from charger power and session time', () => {
   // A session ended at once still bills the smallest unit, never zero or less.
   assert.equal(meteredKwh(7, 100, 500, start, start), 0.01);
   assert.equal(meteredKwh(7, 100, 500, start, after(-30)), 0.01);
+});
+
+test('detects the spending limit being reached even when billed cost rounds down just under it', () => {
+  const start = new Date('2026-11-16T10:00:00Z');
+  const after = (seconds: number) => new Date(start.getTime() + seconds * 1000);
+  // LKR 100 at LKR 85/kWh affords 1.176... kWh – meteredKwh floors that to 1.17 kWh, so
+  // calculateCost(meteredKwh(...)) settles at 99.45 and never equals 100. The regression
+  // this guards: a naive "cost >= spendingLimit" check on the rounded figures would never
+  // fire, leaving a capped session (and its charger) stuck active forever.
+  assert.equal(calculateCost(meteredKwh(22, 85, 100, start, after(60)), 85, 100) >= 100, false);
+  assert.equal(hasReachedSpendingLimit(22, 85, 100, start, after(60)), true);
+  assert.equal(hasReachedSpendingLimit(22, 85, 100, start, after(1)), false);
 });
