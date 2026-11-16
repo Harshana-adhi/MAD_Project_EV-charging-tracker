@@ -273,6 +273,10 @@ export function chargerQrValue(qrToken: string): string {
   return `evcharge://charge/${qrToken}`;
 }
 
+export async function emailChargerQr(_id: string): Promise<{ sentTo: string }> {
+  return { sentTo: 'owner@evct.lk' };
+}
+
 export async function listOwnerSessions(): Promise<SessionWithNames[]> {
   return getOwnerMockData().sessions.map((session) => ({ ...session }));
 }

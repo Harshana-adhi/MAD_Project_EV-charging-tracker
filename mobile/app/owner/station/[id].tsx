@@ -90,7 +90,7 @@ export default function EditStationScreen() {
     }
     setFormVisible(false);
     setEditingCharger(undefined);
-    snackbar.show(editingCharger ? 'Charger updated' : 'Charger added');
+    snackbar.show(editingCharger ? 'Charger updated' : 'Charger added. We emailed you its QR code to print.');
   }
 
   async function confirmDeleteCharger() {
