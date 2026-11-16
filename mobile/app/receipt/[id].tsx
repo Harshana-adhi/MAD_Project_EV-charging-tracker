@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text } from 'react-native-paper';
 import { AppButton, Card, ErrorView, LoadingView, Screen, StatusBadge } from '@/components';
 import { useSession } from '@/features/session/hooks';
+import { SPEED } from '@/features/session/meterReading';
 import { formatCredits, formatDate, formatDuration, formatKwh } from '@/lib/format';
 import { spacing, useAppTheme } from '@/lib/theme';
 
@@ -28,8 +29,10 @@ export default function ReceiptScreen() {
   const item = session.data;
   const cancelled = item.status === 'cancelled';
   const cost = item.cost ?? 0;
+  // The demo meter runs SPEED times faster than real time, so the charging time is the real
+  // elapsed time scaled the same way as the energy – otherwise it would always show 0m.
   const duration = item.endedAt
-    ? Math.max(0, (Date.parse(item.endedAt) - Date.parse(item.startedAt)) / 1000)
+    ? Math.max(0, ((Date.parse(item.endedAt) - Date.parse(item.startedAt)) / 1000) * SPEED)
     : 0;
   return (
     <Screen title={cancelled ? 'Session cancelled' : 'Charging receipt'} scroll>

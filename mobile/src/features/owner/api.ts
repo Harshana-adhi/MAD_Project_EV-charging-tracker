@@ -3,6 +3,7 @@ import type {
   Charger,
   ChargerInput,
   EarningsDay,
+  StationEarnings,
   SessionWithNames,
   Station,
   StationDetail,
@@ -70,6 +71,10 @@ export function listOwnerSessions(): Promise<SessionWithNames[]> {
 
 export function disputeSession(id: string, reason: string): Promise<SessionWithNames> {
   return http.post(`/owner/sessions/${id}/dispute`, { reason }) as unknown as Promise<SessionWithNames>;
+}
+
+export function getStationEarnings(from: string, to: string): Promise<StationEarnings[]> {
+  return http.get('/owner/earnings/stations', { params: { from, to } }) as unknown as Promise<StationEarnings[]>;
 }
 
 export function getOwnerEarnings(from: string, to: string): Promise<EarningsDay[]> {

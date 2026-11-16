@@ -189,6 +189,23 @@ export interface EarningsDay {
   sessions: number;
 }
 
+export interface StationEarningItem {
+  id: string;
+  endedAt: string;
+  chargerLabel: string;
+  earning: number;
+  commission: number;
+}
+
+export interface StationEarnings {
+  stationId: string;
+  stationName: string;
+  sessions: number;
+  earnings: number;
+  commission: number;
+  items: StationEarningItem[];
+}
+
 export interface AdminCounts {
   pendingStations: number;
   pendingTopups: number;

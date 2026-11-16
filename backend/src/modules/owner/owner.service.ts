@@ -507,7 +507,7 @@ function colomboMidnight(day: string): Date {
   return new Date(`${day}T00:00:00+05:30`);
 }
 
-export async function getEarnings(ownerId: string, from?: Date, to?: Date) {
+function earningsWindow(from?: Date, to?: Date) {
   const today = colomboDay(new Date());
   const fromDay = from ? colomboDay(from) : addDays(today, -6);
   const toDay = to ? colomboDay(to) : today;
@@ -515,9 +515,11 @@ export async function getEarnings(ownerId: string, from?: Date, to?: Date) {
     (Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / 86400000 + 1;
   if (dayCount < 1) throw new AppError('VALIDATION_ERROR', 400, 'The date range is invalid');
   if (dayCount > 31) throw new AppError('VALIDATION_ERROR', 400, 'Date range cannot exceed 31 days');
+  return { fromDay, dayCount, start: colomboMidnight(fromDay), endExclusive: colomboMidnight(addDays(toDay, 1)) };
+}
 
-  const start = colomboMidnight(fromDay);
-  const endExclusive = colomboMidnight(addDays(toDay, 1));
+export async function getEarnings(ownerId: string, from?: Date, to?: Date) {
+  const { fromDay, dayCount, start, endExclusive } = earningsWindow(from, to);
   const wallet = await prisma.wallet.findUnique({ where: { userId: ownerId }, select: { id: true } });
   const [transactions, sessions] = await Promise.all([
     wallet
@@ -565,6 +567,50 @@ export async function getEarnings(ownerId: string, from?: Date, to?: Date) {
     commission: Math.round(values.commission * 100) / 100,
     sessions: values.sessions,
   }));
+}
+
+// Per-station view for the owner: each station's totals and the sessions behind them.
+export async function getStationEarnings(ownerId: string, from?: Date, to?: Date) {
+  const { start, endExclusive } = earningsWindow(from, to);
+  const stations = await prisma.station.findMany({
+    where: { ownerId, status: { not: 'deleted' } },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  });
+  const sessions = await prisma.session.findMany({
+    where: {
+      station: { ownerId },
+      status: { in: ['completed', 'disputed'] },
+      endedAt: { gte: start, lt: endExclusive },
+      commission: { not: null },
+    },
+    include: { charger: { select: { label: true } } },
+    orderBy: { endedAt: 'desc' },
+  });
+
+  return stations.map((station) => {
+    const items = sessions
+      .filter((session) => session.stationId === station.id)
+      .map((session) => {
+        const cost = toNumber(session.cost) ?? 0;
+        const commission = toNumber(session.commission) ?? 0;
+        return {
+          id: session.id,
+          endedAt: session.endedAt!.toISOString(),
+          chargerLabel: session.charger.label,
+          earning: Math.round((cost - commission) * 100) / 100,
+          commission,
+        };
+      });
+    return {
+      stationId: station.id,
+      stationName: station.name,
+      sessions: items.length,
+      earnings: Math.round(items.reduce((sum, item) => sum + item.earning, 0) * 100) / 100,
+      commission: Math.round(items.reduce((sum, item) => sum + item.commission, 0) * 100) / 100,
+      items,
+    };
+  });
 }
 
 function toWithdrawal(withdrawal: Withdrawal) {

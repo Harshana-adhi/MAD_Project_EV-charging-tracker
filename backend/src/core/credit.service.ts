@@ -126,7 +126,15 @@ async function settleSession(
     where: { id: ownerWallet.id },
     data: { balance: round2(ownerWallet.balance + ownerEarning) },
   });
-  await writeTxn(tx, ownerWallet.id, 'earning', ownerEarning, 'session', input.sessionId);
+  await writeTxn(
+    tx,
+    ownerWallet.id,
+    'earning',
+    ownerEarning,
+    'session',
+    input.sessionId,
+    `Session earning after ${COMMISSION_RATE * 100}% platform fee (LKR ${commission.toFixed(2)} deducted)`,
+  );
 
   await tx.wallet.update({
     where: { id: platformWallet.id },

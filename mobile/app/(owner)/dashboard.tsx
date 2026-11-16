@@ -57,6 +57,7 @@ export default function OwnerDashboardScreen() {
 
   const activeSessionCount = sessions.data?.filter((session) => session.status === 'active').length ?? null;
   const todaysEarnings = earnings.data?.find((day) => day.day === today)?.earnings;
+  const todaysCommission = earnings.data?.find((day) => day.day === today)?.commission ?? 0;
 
   async function toggleCharger(chargerId: string, status: ChargerStatus) {
     if (status === 'busy') {
@@ -145,7 +146,11 @@ export default function OwnerDashboardScreen() {
             <MetricCard
               title="Today's earnings"
               value={todaysEarnings === undefined ? '—' : formatCredits(todaysEarnings)}
-              detail={todaysEarnings === undefined ? 'Earnings data unavailable' : 'From the owner earning ledger'}
+              detail={
+                todaysEarnings === undefined
+                  ? 'Earnings data unavailable'
+                  : `After platform fee of ${formatCredits(todaysCommission)}`
+              }
               icon="chart-bar"
             />
           </View>
