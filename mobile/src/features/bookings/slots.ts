@@ -36,7 +36,7 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Every on-the-hour/half-hour slot start, for one Colombo calendar day, that fully fits
 // inside opening hours and isn't in the past or more than 7 days out.
-export function generateSlotStarts(openingHours: string, dateValue: string, durationMinutes: 30 | 60): Date[] {
+export function generateSlotStarts(openingHours: string, dateValue: string, durationMinutes: number): Date[] {
   const hours = parseOpeningHours(openingHours) ?? { openMin: 0, closeMin: 24 * 60 };
   const dayStartUtcMs = new Date(`${dateValue}T00:00:00.000Z`).getTime() - COLOMBO_OFFSET_MS;
   const now = Date.now();

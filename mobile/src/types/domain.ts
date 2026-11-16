@@ -236,7 +236,8 @@ export interface OwnerBookingWithNames extends Booking {
 export type BookingInput = {
   chargerId: string;
   startAt: string;
-  durationMinutes: 30 | 60;
+  // 30 to 240, in 30 minute steps.
+  durationMinutes: number;
 };
 
 // A charger's taken times for one day – times only, never who booked them.
