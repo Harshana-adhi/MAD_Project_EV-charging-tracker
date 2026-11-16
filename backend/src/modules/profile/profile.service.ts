@@ -4,6 +4,7 @@ import { prisma } from '../../core/db';
 import { AppError } from '../../core/errors';
 import { checkPassword, hashPassword } from '../../core/password';
 import type { AuthUser } from '../../core/auth.middleware';
+import { takeStationOffMap } from '../stations/stations.service';
 import type { UpdateProfileInput } from './profile.schema';
 
 function toPublicUser(user: User) {
@@ -62,6 +63,20 @@ export async function deleteOwnAccount(requester: AuthUser, password: string) {
       select: { id: true },
     });
     if (activeSessionAtMyStation) throw new AppError('STATION_HAS_ACTIVE_SESSION', 409);
+
+    // The held amount would be stuck with nobody left to receive or cancel it.
+    const pendingWithdrawal = await prisma.withdrawal.findFirst({
+      where: { ownerId: requester.id, status: 'pending' },
+      select: { id: true },
+    });
+    if (pendingWithdrawal) throw new AppError('WITHDRAWAL_PENDING', 409);
+
+    // With no owner left, the stations leave the map and their upcoming bookings are cancelled.
+    const stations = await prisma.station.findMany({
+      where: { ownerId: requester.id, status: { not: 'deleted' } },
+      select: { id: true },
+    });
+    for (const station of stations) await takeStationOffMap(station.id, 'deleted');
   }
 
   // Never actually delete the row – it's still referenced by sessions, reviews, wallet

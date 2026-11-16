@@ -18,7 +18,7 @@ async function runSessionSweep(): Promise<void> {
 
   for (const session of activeSessions) {
     const powerKw = session.charger.powerKw.toNumber();
-    const ratePerKwh = session.charger.ratePerKwh.toNumber();
+    const ratePerKwh = (session.ratePerKwh ?? session.charger.ratePerKwh).toNumber();
     const spendingLimit = session.spendingLimit.toNumber();
     if (!hasReachedSpendingLimit(powerKw, ratePerKwh, spendingLimit, session.startedAt, now)) continue;
 
@@ -41,7 +41,7 @@ async function rescheduleActiveSessions(): Promise<void> {
   const activeSessions = await prisma.session.findMany({ where: { status: 'active' }, include: { charger: true } });
   for (const session of activeSessions) {
     const powerKw = session.charger.powerKw.toNumber();
-    const ratePerKwh = session.charger.ratePerKwh.toNumber();
+    const ratePerKwh = (session.ratePerKwh ?? session.charger.ratePerKwh).toNumber();
     const spendingLimit = session.spendingLimit.toNumber();
     const delayMs = msUntilSpendingLimit(powerKw, ratePerKwh, spendingLimit, session.startedAt, now);
     scheduleSessionAutoEnd(session.id, delayMs, () => {

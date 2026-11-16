@@ -21,7 +21,8 @@ export function DeleteAccountDialog({ onConfirm, onDismiss, loading, error }: De
         <Dialog.Content>
           <Text variant="bodyMedium">
             This permanently removes your name, email and phone number, and you won't be able to log
-            in again. Your past sessions, reviews and transactions stay on record. Enter your password
+            in again. Any credits left in your wallet are lost, and stations you own are removed from the
+            map. Your past sessions, reviews and transactions stay on record. Enter your password
             to confirm.
           </Text>
           <AppTextInput

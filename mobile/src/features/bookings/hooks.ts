@@ -51,10 +51,25 @@ export function useCancelBooking() {
   });
 }
 
+// A new, cancelled or missed booking reaches the owner's lists straight away.
+function useOwnerBookingEvents() {
+  const queryClient = useQueryClient();
+  useEffect(
+    () =>
+      onEvent('booking:changed', () => {
+        queryClient.invalidateQueries({ queryKey: ['owner-bookings'] });
+        queryClient.invalidateQueries({ queryKey: ['owner-booking-history'] });
+      }),
+    [queryClient],
+  );
+}
+
 export function useOwnerBookings() {
+  useOwnerBookingEvents();
   return useQuery({ queryKey: ['owner-bookings'], queryFn: api.listOwnerBookings });
 }
 
 export function useOwnerBookingHistory() {
+  useOwnerBookingEvents();
   return useQuery({ queryKey: ['owner-booking-history'], queryFn: api.listOwnerBookingHistory });
 }

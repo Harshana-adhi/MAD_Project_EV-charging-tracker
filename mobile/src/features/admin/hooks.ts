@@ -91,6 +91,15 @@ export function useProcessWithdrawal() {
   });
 }
 
+export function useAdminDisputes() {
+  return useQuery({ queryKey: ['admin', 'disputes'], queryFn: api.listDisputes });
+}
+
+export function useResolveDispute() {
+  const refresh = useRefreshAdminData();
+  return useMutation({ mutationFn: (id: string) => api.resolveDispute(id), onSettled: refresh });
+}
+
 export function useAdminUsers(search: string) {
   return useQuery({
     queryKey: ['admin', 'users', search],

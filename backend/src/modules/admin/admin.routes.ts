@@ -61,6 +61,13 @@ router.post(
   asyncHandler(controller.processWithdrawal),
 );
 
+router.get('/disputes', asyncHandler(controller.listDisputes));
+router.post(
+  '/disputes/:id/resolve',
+  validate({ params: idParamsSchema }),
+  asyncHandler(controller.resolveDispute),
+);
+
 router.get('/users', validate({ query: usersQuerySchema }), asyncHandler(controller.listUsers));
 router.patch(
   '/users/:id/block',

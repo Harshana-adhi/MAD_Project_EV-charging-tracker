@@ -46,6 +46,14 @@ export async function processWithdrawal(req: Request, res: Response) {
   res.json({ data: withdrawal });
 }
 
+export async function listDisputes(req: Request, res: Response) {
+  res.json({ data: await adminService.listDisputes() });
+}
+
+export async function resolveDispute(req: Request, res: Response) {
+  res.json({ data: await adminService.resolveDispute(req.params.id) });
+}
+
 export async function listUsers(req: Request, res: Response) {
   const users = await adminService.listUsers(req.query.search as string | undefined);
   res.json({ data: users });

@@ -24,6 +24,7 @@ type SessionDetails = Prisma.SessionGetPayload<{ include: typeof sessionInclude 
 // The demo meter runs 60 times faster than real time (one real second is one charging minute).
 // It must match SPEED in mobile/src/features/session/meterReading.ts.
 const METER_SPEED = 60;
+const CANCEL_LIMIT_KWH = 0.05;
 
 // The energy is worked out on the server from the charger's power and how long the session ran,
 // so a modified app cannot report less energy than was delivered. It never goes beyond what the
@@ -100,21 +101,22 @@ function withNames(session: SessionDetails) {
     chargerLabel: session.charger.label,
     connector: session.charger.connector,
     powerKw: toNumber(session.charger.powerKw)!,
-    ratePerKwh: toNumber(session.charger.ratePerKwh)!,
+    ratePerKwh: toNumber(session.ratePerKwh ?? session.charger.ratePerKwh)!,
     customerName: session.customer.fullName,
     hasReview: session.review !== null,
   };
 }
 
-async function publishStatus(session: DbSession, ownerId: string, status: 'busy' | 'available') {
+async function publishStatus(session: DbSession, ownerId: string) {
   // Sends the station's freshly-counted available/online totals rather than letting
   // clients try to derive them by incrementing – they can't do that correctly without
   // knowing each charger's previous status.
   const counts = await getStationStatusCounts(session.stationId);
+  const charger = await prisma.charger.findUnique({ where: { id: session.chargerId }, select: { status: true } });
   broadcast('charger:status', {
     chargerId: session.chargerId,
     stationId: session.stationId,
-    status,
+    status: charger?.status ?? 'available',
     ...counts,
   });
   const payload = plainSession(session);
@@ -132,6 +134,7 @@ export async function getChargerByQr(qrToken: string, customerId: string) {
   if (charger.station.status !== 'approved') throw new AppError('STATION_NOT_APPROVED', 409);
   if (charger.station.ownerId === customerId) throw new AppError('OWN_STATION', 409);
   const wallet = await credit.getWallet(customerId);
+  const guarding = await findGuardingBooking(prisma, charger.id, new Date());
   return {
     charger: {
       id: charger.id,
@@ -142,6 +145,8 @@ export async function getChargerByQr(qrToken: string, customerId: string) {
       ratePerKwh: toNumber(charger.ratePerKwh)!,
       status: charger.status,
       qrToken: charger.qrToken,
+      // Set when another customer's booking holds this charger right now.
+      reservedUntil: guarding && guarding.customerId !== customerId ? guarding.endAt.toISOString() : null,
     },
     station: { id: charger.station.id, name: charger.station.name, address: charger.station.address },
     available: wallet.available,
@@ -191,12 +196,32 @@ export async function startSession(customerId: string, input: { qrToken: string;
       throw new AppError('CHARGER_RESERVED', 409);
     }
 
+    // The session must be able to finish before the next customer's booking starts.
+    const now = new Date();
+    const nextBooking = await tx.booking.findFirst({
+      where: { chargerId: charger.id, status: 'booked', customerId: { not: customerId }, startAt: { gt: now } },
+      orderBy: { startAt: 'asc' },
+    });
+    if (nextBooking) {
+      const neededMs = msUntilSpendingLimit(
+        toNumber(charger.powerKw)!,
+        toNumber(charger.ratePerKwh)!,
+        input.spendingLimit,
+        now,
+        now,
+      );
+      if (now.getTime() + neededMs > nextBooking.startAt.getTime()) {
+        throw new AppError('BOOKING_STARTS_SOON', 409);
+      }
+    }
+
     const session = await tx.session.create({
       data: {
         customerId,
         chargerId: charger.id,
         stationId: charger.stationId,
         spendingLimit: input.spendingLimit,
+        ratePerKwh: charger.ratePerKwh,
         status: 'active',
       },
     });
@@ -222,7 +247,7 @@ export async function startSession(customerId: string, input: { qrToken: string;
     };
   });
 
-  await publishStatus(session, ownerId, 'busy');
+  await publishStatus(session, ownerId);
   if (usedBooking) broadcastBookingChanged(usedBooking.chargerId, usedBooking.stationId, usedBooking.startAt);
   await Promise.allSettled([credit.emitWalletUpdates([customerId])]);
 
@@ -254,18 +279,16 @@ export async function endSession(id: string, customerId?: string) {
     if (current.status !== 'active') throw new AppError('SESSION_NOT_ACTIVE', 409);
 
     const endedAt = new Date();
+    // Billed at the rate fixed when the session started, even if the owner changed it since.
+    const ratePerKwh = (current.ratePerKwh ?? current.charger.ratePerKwh).toNumber();
     const kwh = meteredKwh(
       current.charger.powerKw.toNumber(),
-      current.charger.ratePerKwh.toNumber(),
+      ratePerKwh,
       current.spendingLimit.toNumber(),
       current.startedAt,
       endedAt,
     );
-    const cost = calculateCost(
-      kwh,
-      current.charger.ratePerKwh.toNumber(),
-      current.spendingLimit.toNumber(),
-    );
+    const cost = calculateCost(kwh, ratePerKwh, current.spendingLimit.toNumber());
     const { commission } = await credit.settleSession(tx, {
       sessionId: id,
       customerId: current.customerId,
@@ -277,12 +300,13 @@ export async function endSession(id: string, customerId?: string) {
       where: { id },
       data: { status: 'completed', kwh, cost, commission, endedAt },
     });
-    await tx.charger.update({ where: { id: current.chargerId }, data: { status: 'available' } });
+    // Only a charger this session made busy goes back to available.
+    await tx.charger.updateMany({ where: { id: current.chargerId, status: 'busy' }, data: { status: 'available' } });
     return { session, ownerId: current.station.ownerId, stationName: current.station.name, chargerLabel: current.charger.label, kwh };
   });
 
   cancelSessionAutoEnd(id);
-  await publishStatus(session, ownerId, 'available');
+  await publishStatus(session, ownerId);
   const cost = session.cost!.toNumber();
   const commission = session.commission!.toNumber();
   await Promise.allSettled([
@@ -310,10 +334,15 @@ export async function endSession(id: string, customerId?: string) {
 export async function cancelSession(id: string, customerId: string) {
   const { session, ownerId } = await withTx(async (tx) => {
     await tx.$queryRaw`SELECT id FROM sessions WHERE id = ${id} FOR UPDATE`;
-    const current = await tx.session.findUnique({ where: { id }, include: { station: true } });
+    const current = await tx.session.findUnique({ where: { id }, include: { station: true, charger: true } });
     if (!current) throw new AppError('SESSION_NOT_FOUND', 404);
     if (current.customerId !== customerId) throw new AppError('NOT_ALLOWED', 403);
     if (current.status !== 'active') throw new AppError('SESSION_NOT_ACTIVE', 409);
+
+    // A full refund is only for a session that has barely started – the same 0.05 kWh the app allows.
+    const elapsedMs = Date.now() - current.startedAt.getTime();
+    const deliveredKwh = (current.charger.powerKw.toNumber() * elapsedMs * METER_SPEED) / 3_600_000;
+    if (deliveredKwh >= CANCEL_LIMIT_KWH) throw new AppError('CANCEL_NOT_ALLOWED', 409);
 
     await credit.release(tx, {
       userId: customerId,
@@ -325,12 +354,13 @@ export async function cancelSession(id: string, customerId: string) {
       where: { id },
       data: { status: 'cancelled', endedAt: new Date() },
     });
-    await tx.charger.update({ where: { id: current.chargerId }, data: { status: 'available' } });
+    // Only a charger this session made busy goes back to available.
+    await tx.charger.updateMany({ where: { id: current.chargerId, status: 'busy' }, data: { status: 'available' } });
     return { session, ownerId: current.station.ownerId };
   });
 
   cancelSessionAutoEnd(id);
-  await publishStatus(session, ownerId, 'available');
+  await publishStatus(session, ownerId);
   await Promise.allSettled([
     credit.emitWalletUpdates([customerId]),
     notify({

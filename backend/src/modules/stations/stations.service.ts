@@ -168,9 +168,10 @@ export async function getStationById(id: string, viewerId?: string) {
   return { ...summary, chargers, isFavourite };
 }
 
-// Used when an owner deletes a station or an admin hides it: it leaves the map straight away
+// Used when an owner deletes a station, an admin hides it, or an edit sends it back for
+// approval: it leaves the map straight away
 // and any upcoming bookings there are cancelled, since nobody can charge at it any more.
-export async function takeStationOffMap(stationId: string, status: 'hidden' | 'deleted') {
+export async function takeStationOffMap(stationId: string, status: 'hidden' | 'deleted' | 'pending') {
   const station = await prisma.station.findUniqueOrThrow({ where: { id: stationId } });
   const cancelled = await withTx(async (tx) => {
     await tx.station.update({ where: { id: stationId }, data: { status } });
