@@ -108,3 +108,21 @@ export function freeWindows(openingHours: string, dateValue: string, booked: Tim
 export function slotCost(powerKw: number, ratePerKwh: number, minutes: number): number {
   return Math.round(powerKw * (minutes / 60) * ratePerKwh);
 }
+
+// Minutes since Colombo midnight for an instant, e.g. 10:30 -> 630.
+export function colomboMinutes(date: Date): number {
+  return Math.floor(((date.getTime() + COLOMBO_OFFSET_MS) % (24 * 60 * 60 * 1000)) / 60000);
+}
+
+// "10:30 AM" style, in Colombo time. Midnight at the end of a day reads "12:00 AM".
+export function formatClock(date: Date): string {
+  const minutes = colomboMinutes(date);
+  const hour = Math.floor(minutes / 60);
+  const minute = String(minutes % 60).padStart(2, '0');
+  return `${hour % 12 === 0 ? 12 : hour % 12}:${minute} ${hour < 12 ? 'AM' : 'PM'}`;
+}
+
+// 630 -> "10:30"
+export function minutesToText(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}

@@ -14,6 +14,7 @@ import {
   useSnackbar,
 } from '@/components';
 import { BookingCalendar } from '@/features/bookings/BookingCalendar';
+import { TimeWheelPicker } from '@/features/bookings/TimeWheelPicker';
 import { useCreateBooking, useStationBookings } from '@/features/bookings/hooks';
 import {
   TARGET_OPTIONS,
@@ -28,6 +29,9 @@ import {
   addDays,
   colomboDateString,
   colomboInstant,
+  colomboMinutes,
+  formatClock,
+  minutesToText,
   formatDay,
   freeWindows,
   generateSlotStarts,
@@ -39,7 +43,6 @@ import { useStation } from '@/features/map/hooks';
 import { useVehicles } from '@/features/profile/hooks';
 import { vehicleForConnector } from '@/features/profile/vehicleFit';
 import { errorMessage } from '@/lib/errors';
-import { formatTime } from '@/lib/format';
 import { spacing, useAppTheme } from '@/lib/theme';
 import type { Charger, TakenSlot } from '@/types/domain';
 
@@ -62,6 +65,7 @@ export default function NewBookingScreen() {
   const [amountText, setAmountText] = useState('');
   const [day, setDay] = useState(today);
   const [timeText, setTimeText] = useState('');
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [pendingDay, setPendingDay] = useState(today);
   const [submitError, setSubmitError] = useState('');
@@ -117,13 +121,13 @@ export default function NewBookingScreen() {
   }
 
 
-  // Checks the typed start time and says plainly what is wrong with it.
-  function checkTime(): { startAt: Date | null; problem: string | null; suggestion: Date | null } {
+  // Checks a start time ("HH:MM") and says plainly what is wrong with it.
+  function checkTime(text = timeText): { startAt: Date | null; problem: string | null; suggestion: Date | null } {
     const none = { startAt: null, problem: null, suggestion: null };
-    if (!timeText.trim()) return none;
-    const minutes = parseTypedTime(timeText);
-    if (minutes === null) return { ...none, problem: 'Type the time like 14:30 (24-hour clock).' };
-    if (minutes % 30 !== 0) return { ...none, problem: 'Bookings start on the hour or half hour, like 14:00 or 14:30.' };
+    if (!text.trim()) return none;
+    const minutes = parseTypedTime(text);
+    if (minutes === null) return { ...none, problem: 'Choose a start time.' };
+    if (minutes % 30 !== 0) return { ...none, problem: 'Bookings start on the hour or half hour.' };
     const startAt = colomboInstant(day, minutes);
     if (startAt.getTime() < Date.now()) return { ...none, problem: 'That time has already passed. Choose a later time.' };
     if (!slotStarts.some((slot) => slot.getTime() === startAt.getTime())) {
@@ -137,21 +141,6 @@ export default function NewBookingScreen() {
       return { startAt: null, problem: `${selectedCharger?.label} is already booked at that time.`, suggestion };
     }
     return { startAt, problem: null, suggestion: null };
-  }
-
-  function typeTime(text: string) {
-    let clean = text.replace(/[^0-9:]/g, '').slice(0, 5);
-    // "1430" becomes "14:30" so a number keypad is enough.
-    if (!clean.includes(':') && clean.length === 4) clean = `${clean.slice(0, 2)}:${clean.slice(2)}`;
-    setTimeText(clean);
-    setSubmitError('');
-  }
-
-  function tidyTime() {
-    const minutes = parseTypedTime(timeText);
-    if (minutes !== null) {
-      setTimeText(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
-    }
   }
 
   async function confirmBooking(startAt: Date) {
@@ -185,7 +174,7 @@ export default function NewBookingScreen() {
   const firstFree = openRanges[0];
   const someTimePassed = isToday && !!firstFree && firstFree.start > colomboInstant(day, openMinute);
   const timeText24 = (range: TimeRange) =>
-    `${formatTime(range.start.toISOString())} – ${range.end >= dayEnd ? '24:00' : formatTime(range.end.toISOString())}`;
+    `${formatClock(range.start)} – ${range.end >= dayEnd ? 'midnight' : formatClock(range.end)}`;
   const endAt = time.startAt ? new Date(time.startAt.getTime() + slotMinutes * 60 * 1000) : null;
   const amountProblem = amountText && !target ? 'Type a number.' : plan?.problem ?? null;
   // Never confirm before the booked times are known, so a taken time can't slip through.
@@ -207,7 +196,7 @@ export default function NewBookingScreen() {
           <View style={styles.flex}>
             <Text variant="titleSmall" numberOfLines={1}>
               {selectedCharger.label} · {dayLabel}
-              {time.startAt && endAt ? ` ${formatTime(time.startAt.toISOString())}–${formatTime(endAt.toISOString())}` : ''}
+              {time.startAt && endAt ? ` ${formatClock(time.startAt)} – ${formatClock(endAt)}` : ''}
             </Text>
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
               {target && plan && !plan.problem ? `${formatTargetValue(target)} · ≈ ${plan.kwh.toFixed(1)} kWh` : 'Fill in the steps above'}
@@ -418,7 +407,7 @@ export default function NewBookingScreen() {
                   {openRanges.length === 0
                     ? 'There is no free time left this day. Choose another date.'
                     : someTimePassed
-                      ? `Any other time from ${formatTime(firstFree.start.toISOString())} is free to book.`
+                      ? `Any other time from ${formatClock(firstFree.start)} is free to book.`
                       : 'Any other time is free to book.'}
                 </Text>
               </View>
@@ -434,7 +423,7 @@ export default function NewBookingScreen() {
                   {openRanges.length === 0
                     ? 'The station has no time left this day. Choose another date.'
                     : someTimePassed
-                      ? `Earlier times today have passed, so you can book any time from ${formatTime(firstFree.start.toISOString())}.`
+                      ? `Earlier times today have passed, so you can book any time from ${formatClock(firstFree.start)}.`
                       : 'You can book any time the station is open.'}
                 </Text>
               </View>
@@ -471,37 +460,77 @@ export default function NewBookingScreen() {
           </Portal>
 
           <Step number={4} title="Start time" hint={`${dayLabel}${plan && !plan.problem ? ` · holds ${formatMinutes(slotMinutes)}` : ''}`} />
-          <TextInput
-            mode="outlined"
-            label="Start time (24-hour)"
-            placeholder="e.g. 14:30"
-            value={timeText}
-            onChangeText={typeTime}
-            onBlur={tidyTime}
-            keyboardType="numeric"
-            maxLength={5}
-            left={<TextInput.Icon icon="clock-outline" />}
-            error={!!time.problem}
-            style={styles.input}
-          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={time.startAt ? `Start time, ${formatClock(time.startAt)}. Change time` : 'Choose a start time'}
+            onPress={() => setTimePickerOpen(true)}
+            style={({ pressed }) => [
+              styles.dateField,
+              {
+                backgroundColor: pressed ? theme.colors.surfaceVariant : theme.colors.surface,
+                borderColor: time.problem ? theme.colors.error : timeText ? theme.colors.primary : theme.colors.outline,
+              },
+            ]}
+          >
+            <View style={[styles.dateIcon, { backgroundColor: theme.colors.primaryContainer }]}>
+              <MaterialCommunityIcons name="clock-outline" size={22} color={theme.colors.onPrimaryContainer} />
+            </View>
+            <View style={styles.flex}>
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                Start time
+              </Text>
+              <Text variant="titleMedium" style={{ color: timeText ? theme.colors.onSurface : theme.colors.onSurfaceVariant }}>
+                {timeText && parseTypedTime(timeText) !== null
+                  ? formatClock(colomboInstant(day, parseTypedTime(timeText)!))
+                  : 'Choose a time'}
+              </Text>
+            </View>
+            <Text variant="labelLarge" style={{ color: theme.colors.primary }}>
+              {timeText ? 'Change' : 'Choose'}
+            </Text>
+          </Pressable>
           {time.problem ? (
             <View style={styles.timeProblem}>
               <HelperText type="error" style={[styles.noPad, styles.flex]}>
                 {time.problem}
               </HelperText>
               {time.suggestion ? (
-                <Button mode="contained-tonal" compact onPress={() => setTimeText(formatTime(time.suggestion!.toISOString()))}>
-                  Use {formatTime(time.suggestion.toISOString())}
+                <Button mode="contained-tonal" compact onPress={() => setTimeText(minutesToText(colomboMinutes(time.suggestion!)))}>
+                  Use {formatClock(time.suggestion)}
                 </Button>
               ) : null}
             </View>
           ) : (
             <HelperText type="info" style={styles.noPad}>
               {time.startAt && endAt
-                ? `\u2713 That time is free. ${portName} will be yours from ${formatTime(time.startAt.toISOString())} to ${formatTime(endAt.toISOString())}.`
-                : `Start on the hour or half hour, like 09:00 or 14:30. Open ${station.data.openingHours}.`}
+                ? `\u2713 That time is free. ${portName} will be yours from ${formatClock(time.startAt)} to ${formatClock(endAt)}.`
+                : 'Tap to pick the hour, minutes and AM or PM.'}
             </HelperText>
           )}
+          <TimeWheelPicker
+            visible={timePickerOpen}
+            initialMinutes={
+              timeText && parseTypedTime(timeText) !== null
+                ? parseTypedTime(timeText)!
+                : isToday && firstFree
+                  ? colomboMinutes(firstFree.start)
+                  : 9 * 60
+            }
+            onCancel={() => setTimePickerOpen(false)}
+            onSave={(minutes) => {
+              setTimeText(minutesToText(minutes));
+              setSubmitError('');
+              setTimePickerOpen(false);
+            }}
+            describe={(minutes) => {
+              const check = checkTime(minutesToText(minutes));
+              if (check.startAt) {
+                const until = new Date(check.startAt.getTime() + slotMinutes * 60 * 1000);
+                return { ok: true, text: `Free \u2013 ${portName} is yours ${formatClock(check.startAt)} to ${formatClock(until)}` };
+              }
+              return { ok: false, text: check.problem ?? 'Choose a start time.' };
+            }}
+          />
 
           <View style={[styles.notice, { borderColor: theme.colors.outlineVariant }]}>
             <MaterialCommunityIcons name="information-outline" size={18} color={theme.colors.onSurfaceVariant} />
