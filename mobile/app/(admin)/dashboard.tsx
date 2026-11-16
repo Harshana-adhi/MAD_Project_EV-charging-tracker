@@ -1,92 +1,106 @@
 import { StyleSheet, View } from 'react-native';
 import { router, type Href } from 'expo-router';
-import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Card, ErrorView, LoadingView, Screen } from '@/components';
+import { Text, TouchableRipple } from 'react-native-paper';
+import { ErrorView, LoadingView, Screen } from '@/components';
 import { useAuth } from '@/features/auth';
-import { useAdminCounts } from '@/features/admin/hooks';
+import {
+  useAdminCounts,
+  useAdminStations,
+  useAdminTopups,
+  useAdminWithdrawals,
+} from '@/features/admin/hooks';
+import { AttentionList } from '@/features/admin/components/AttentionList';
+import { IncomeSummaryCard } from '@/features/admin/components/IncomeSummaryCard';
+import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
+import { useIncome } from '@/features/reports/hooks';
 import { useAppTheme, spacing } from '@/lib/theme';
 import type { AdminCounts } from '@/types/domain';
-import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 
-type CountCard = {
-  key: keyof AdminCounts;
-  label: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  route: Href;
-};
+type CountTile = { key: keyof AdminCounts; label: string; route: Href };
 
-const COUNT_CARDS: CountCard[] = [
+const COUNT_TILES: CountTile[] = [
   {
     key: 'pendingStations',
-    label: 'Pending stations',
-    icon: 'shield-check',
+    label: 'Stations',
     route: { pathname: '/(admin)/stations', params: { status: 'pending' } },
   },
   {
     key: 'pendingTopups',
-    label: 'Pending top-ups',
-    icon: 'cash-plus',
+    label: 'Top-ups',
     route: { pathname: '/(admin)/payments', params: { tab: 'topups' } },
   },
   {
     key: 'pendingWithdrawals',
-    label: 'Pending withdrawals',
-    icon: 'bank-transfer',
+    label: 'Payouts',
     route: { pathname: '/(admin)/payments', params: { tab: 'withdrawals' } },
   },
-  { key: 'users', label: 'Users', icon: 'account-group', route: '/(admin)/users' },
+  { key: 'users', label: 'Users', route: '/(admin)/users' },
 ];
 
 export default function AdminDashboardScreen() {
   const theme = useAppTheme();
   const { user } = useAuth();
-  const { data: counts, isLoading, isError, error, refetch } = useAdminCounts();
-  const { refreshing, onRefresh } = usePullToRefresh(refetch);
+  const counts = useAdminCounts();
+  const days = useIncome('day');
+  const months = useIncome('month');
+  const stations = useAdminStations('pending');
+  const topups = useAdminTopups('pending');
+  const withdrawals = useAdminWithdrawals('pending');
+  const queries = [counts, days, months, stations, topups, withdrawals];
 
-  if (isLoading) return <LoadingView />;
-  if (isError || !counts) return <ErrorView error={error} onRetry={refetch} />;
+  const { refreshing, onRefresh } = usePullToRefresh(() =>
+    Promise.all(queries.map((query) => query.refetch())),
+  );
+
+  if (queries.some((query) => query.isLoading)) return <LoadingView />;
+  const failed = queries.find((query) => query.isError);
+  if (failed) return <ErrorView error={failed.error} onRetry={onRefresh} />;
 
   const firstName = user?.fullName.split(' ')[0] ?? 'Admin';
 
   return (
     <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
-      <Text variant="headlineSmall">Hello, {firstName}</Text>
-      <Text variant="bodyMedium" style={[styles.intro, { color: theme.colors.onSurfaceVariant }]}>
-        Here is what needs your attention.
-      </Text>
+      <View style={styles.content}>
+        <IncomeSummaryCard firstName={firstName} days={days.data ?? []} months={months.data ?? []} />
 
-      <View style={styles.grid}>
-        {COUNT_CARDS.map((card) => (
-          <View key={card.key} style={styles.cell}>
-            <Card onPress={() => router.navigate(card.route)}>
-              <View style={styles.cardTop}>
-                <MaterialCommunityIcons name={card.icon} size={24} color={theme.colors.primary} />
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={20}
-                  color={theme.colors.onSurfaceVariant}
-                  accessibilityLabel={`Open ${card.label.toLowerCase()}`}
-                />
+        <AttentionList
+          stations={stations.data ?? []}
+          topups={topups.data ?? []}
+          withdrawals={withdrawals.data ?? []}
+        />
+
+        <View style={styles.tiles}>
+          {COUNT_TILES.map((tile) => (
+            <TouchableRipple
+              key={tile.key}
+              onPress={() => router.navigate(tile.route)}
+              accessibilityRole="button"
+              accessibilityLabel={`${tile.label}: ${counts.data?.[tile.key] ?? 0}`}
+              style={[
+                styles.tile,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
+              ]}
+            >
+              <View style={styles.tileInner}>
+                <Text variant="titleMedium" style={styles.tabular}>
+                  {counts.data?.[tile.key] ?? 0}
+                </Text>
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  {tile.label}
+                </Text>
               </View>
-              <Text variant="titleMedium" style={styles.count}>
-                {counts[card.key]}
-              </Text>
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                {card.label}
-              </Text>
-            </Card>
-          </View>
-        ))}
+            </TouchableRipple>
+          ))}
+        </View>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  intro: { marginBottom: spacing.xl },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  cell: { width: '48%' },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  count: { marginTop: spacing.sm, fontVariant: ['tabular-nums'] },
+  content: { gap: spacing.xl },
+  tiles: { flexDirection: 'row', gap: spacing.sm },
+  tile: { flex: 1, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  tileInner: { alignItems: 'center', paddingVertical: spacing.md, gap: 2 },
+  tabular: { fontVariant: ['tabular-nums'] },
 });
