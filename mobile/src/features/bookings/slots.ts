@@ -49,3 +49,27 @@ export function generateSlotStarts(openingHours: string, dateValue: string, dura
   }
   return starts;
 }
+
+// Short labels for the day picker, e.g. { top: 'Today', bottom: '16' } or { top: 'Wed', bottom: '18' }.
+export function dayPickerLabel(dateValue: string, index: number): { top: string; bottom: string } {
+  const date = new Date(`${dateValue}T00:00:00+05:30`);
+  const weekday = date.toLocaleDateString('en-LK', { weekday: 'short', timeZone: 'Asia/Colombo' });
+  return { top: index === 0 ? 'Today' : index === 1 ? 'Tmrw' : weekday, bottom: dateValue.slice(8, 10).replace(/^0/, '') };
+}
+
+export type DayPart = 'Early morning' | 'Morning' | 'Afternoon' | 'Evening' | 'Night';
+
+// Which part of the Colombo day a slot starts in, for grouping the time grid.
+export function dayPart(startAt: Date): DayPart {
+  const hour = new Date(startAt.getTime() + COLOMBO_OFFSET_MS).getUTCHours();
+  if (hour < 5) return 'Early morning';
+  if (hour < 12) return 'Morning';
+  if (hour < 17) return 'Afternoon';
+  if (hour < 21) return 'Evening';
+  return 'Night';
+}
+
+// Most a customer pays if the charger runs at full power for the whole slot.
+export function slotCost(powerKw: number, ratePerKwh: number, minutes: number): number {
+  return Math.round(powerKw * (minutes / 60) * ratePerKwh);
+}
