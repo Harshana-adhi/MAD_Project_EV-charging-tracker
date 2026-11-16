@@ -14,6 +14,15 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-LK', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-LK', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Colombo',
+  });
+}
+
 export function formatDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);

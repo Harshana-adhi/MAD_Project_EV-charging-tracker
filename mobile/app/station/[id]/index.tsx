@@ -21,6 +21,7 @@ import {
   StatusBadge,
 } from '@/components';
 import { useAppTheme, spacing } from '@/lib/theme';
+import { formatTime } from '@/lib/format';
 
 export default function StationDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -53,6 +54,14 @@ export default function StationDetailsScreen() {
       return;
     }
     router.push('/scan');
+  }
+
+  function bookCharger() {
+    if (!user) {
+      router.push('/(auth)/login');
+      return;
+    }
+    router.push({ pathname: '/booking/new', params: { stationId: station!.id } });
   }
 
   return (
@@ -154,7 +163,11 @@ export default function StationDetailsScreen() {
                   </View>
                 ) : null}
               </View>
-              <StatusBadge status={charger.status} />
+              {charger.reservedUntil ? (
+                <StatusBadge status="reserved" label={`Reserved until ${formatTime(charger.reservedUntil)}`} />
+              ) : (
+                <StatusBadge status={charger.status} />
+              )}
             </View>
           );
         })
@@ -183,6 +196,15 @@ export default function StationDetailsScreen() {
         </Menu>
         <AppButton label="Charge here" onPress={chargeHere} />
       </View>
+      {isCustomer ? (
+        <AppButton
+          label="Book a charger"
+          mode="outlined"
+          icon="calendar-clock"
+          onPress={bookCharger}
+          style={styles.bookButton}
+        />
+      ) : null}
 
       <View style={[styles.reviewsHeader, styles.sectionTitle]}>
         <Text variant="titleMedium">
@@ -251,4 +273,5 @@ const styles = StyleSheet.create({
   centerText: { textAlign: 'center' },
   reviewList: { gap: spacing.sm, marginBottom: spacing.lg },
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
+  bookButton: { marginTop: spacing.sm },
 });

@@ -9,6 +9,16 @@ function qrToken(): string {
   return randomBytes(9).toString('base64url').slice(0, 12);
 }
 
+// Asia/Colombo is a fixed UTC+5:30 offset – shift the Colombo wall-clock time we want
+// back to the UTC instant that stores it. hour/minute can safely go out of range (e.g.
+// minute: -30), Date normalises that into the right day/hour.
+function colomboSlot(daysAhead: number, hour: number, minute: number): Date {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + daysAhead);
+  d.setUTCHours(hour - 5, minute - 30, 0, 0);
+  return d;
+}
+
 async function main() {
   const existingPlatformWallet = await prisma.wallet.findFirst({ where: { isPlatform: true } });
   if (!existingPlatformWallet) {
@@ -155,6 +165,44 @@ async function main() {
         chargers: {
           create: [{ label: 'A1', connector: 'TYPE2', powerKw: 22, ratePerKwh: 85, qrToken: qrToken() }],
         },
+      },
+    });
+  }
+
+  const bookingSeeds = [
+    {
+      customer,
+      stationName: 'Kandy City Hotel Charging Point',
+      chargerLabel: 'A1',
+      startAt: colomboSlot(2, 10, 0),
+      durationMinutes: 30,
+    },
+    {
+      customer: customer2,
+      stationName: 'Peradeniya Rest Stop',
+      chargerLabel: 'A1',
+      startAt: colomboSlot(1, 14, 0),
+      durationMinutes: 60,
+    },
+  ];
+
+  for (const seedBooking of bookingSeeds) {
+    const alreadyBooked = await prisma.booking.findFirst({ where: { customerId: seedBooking.customer.id } });
+    if (alreadyBooked) continue;
+    const station = await prisma.station.findFirst({
+      where: { name: seedBooking.stationName },
+      include: { chargers: true },
+    });
+    const charger = station?.chargers.find((c) => c.label === seedBooking.chargerLabel);
+    if (!station || !charger) continue;
+    await prisma.booking.create({
+      data: {
+        customerId: seedBooking.customer.id,
+        chargerId: charger.id,
+        stationId: station.id,
+        startAt: seedBooking.startAt,
+        endAt: new Date(seedBooking.startAt.getTime() + seedBooking.durationMinutes * 60 * 1000),
+        status: 'booked',
       },
     });
   }

@@ -11,6 +11,13 @@ export function notificationDestination(note: AppNotification, role: Role): Href
       }
       if (role === 'owner') return '/owner/sessions';
       return undefined;
+    case 'booking_reminder':
+    case 'booking_warning':
+    case 'booking_expired':
+      return role === 'customer' ? '/bookings' : undefined;
+    case 'booking_made':
+    case 'booking_cancelled':
+      return role === 'owner' ? '/owner/sessions' : undefined;
     case 'station_review':
       return role === 'owner' ? '/(owner)/stations' : undefined;
     case 'topup_review':
