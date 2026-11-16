@@ -4,6 +4,7 @@ import { AppError } from '../../core/errors';
 import { credit } from '../../core/credit.service';
 import { notify } from '../../core/notify.service';
 import { broadcast, emitToUser } from '../../core/socket';
+import { getStationStatusCounts } from '../stations/stations.service';
 import type { AuthUser } from '../../core/auth.middleware';
 
 const sessionInclude = {
@@ -52,8 +53,17 @@ function withNames(session: SessionDetails) {
   };
 }
 
-function publishStatus(session: DbSession, ownerId: string, status: 'busy' | 'available') {
-  broadcast('charger:status', { chargerId: session.chargerId, stationId: session.stationId, status });
+async function publishStatus(session: DbSession, ownerId: string, status: 'busy' | 'available') {
+  // Sends the station's freshly-counted available/online totals rather than letting
+  // clients try to derive them by incrementing – they can't do that correctly without
+  // knowing each charger's previous status.
+  const counts = await getStationStatusCounts(session.stationId);
+  broadcast('charger:status', {
+    chargerId: session.chargerId,
+    stationId: session.stationId,
+    status,
+    ...counts,
+  });
   const payload = plainSession(session);
   emitToUser(session.customerId, 'session:updated', payload);
   emitToUser(ownerId, 'session:updated', payload);
@@ -122,7 +132,7 @@ export async function startSession(customerId: string, input: { qrToken: string;
     return { session, ownerId: charger.station.ownerId };
   });
 
-  publishStatus(session, ownerId, 'busy');
+  await publishStatus(session, ownerId, 'busy');
   await Promise.allSettled([credit.emitWalletUpdates([customerId])]);
   return plainSession(session);
 }
@@ -158,7 +168,7 @@ export async function endSession(id: string, customerId: string, kwh: number) {
     return { session, ownerId: current.station.ownerId, stationName: current.station.name, chargerLabel: current.charger.label };
   });
 
-  publishStatus(session, ownerId, 'available');
+  await publishStatus(session, ownerId, 'available');
   const cost = session.cost!.toNumber();
   const commission = session.commission!.toNumber();
   await Promise.allSettled([
@@ -205,7 +215,7 @@ export async function cancelSession(id: string, customerId: string) {
     return { session, ownerId: current.station.ownerId };
   });
 
-  publishStatus(session, ownerId, 'available');
+  await publishStatus(session, ownerId, 'available');
   await Promise.allSettled([
     credit.emitWalletUpdates([customerId]),
     notify({

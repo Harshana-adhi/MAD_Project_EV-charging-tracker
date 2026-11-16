@@ -4,20 +4,27 @@ import { onEvent } from '@/lib/socket';
 import type { StationDetail, StationFilters, StationSummary } from '@/types/domain';
 import { api } from './index';
 
-type ChargerStatusPayload = { chargerId: string; stationId: string; status: 'available' | 'busy' | 'offline' };
+type ChargerStatusPayload = {
+  chargerId: string;
+  stationId: string;
+  status: 'available' | 'busy' | 'offline';
+  availableCount: number;
+  onlineCount: number;
+};
 
 function useChargerStatusSync() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
     return onEvent('charger:status', (payload) => {
-      const { stationId, chargerId, status } = payload as ChargerStatusPayload;
+      const { stationId, chargerId, status, availableCount, onlineCount } = payload as ChargerStatusPayload;
 
+      // Set the server-computed counts directly rather than incrementing/decrementing –
+      // without knowing each charger's previous status, a client-side +/-1 can't tell a
+      // charger that just went offline apart from one that was already busy, and drifts.
       queryClient.setQueriesData<StationSummary[]>({ queryKey: ['stations'] }, (stations) =>
         stations?.map((station) =>
-          station.id === stationId
-            ? { ...station, availableCount: status === 'available' ? station.availableCount + 1 : Math.max(0, station.availableCount - 1) }
-            : station,
+          station.id === stationId ? { ...station, availableCount, onlineCount } : station,
         ),
       );
 
@@ -25,6 +32,8 @@ function useChargerStatusSync() {
         if (!station) return station;
         return {
           ...station,
+          availableCount,
+          onlineCount,
           chargers: station.chargers.map((charger) =>
             charger.id === chargerId ? { ...charger, status } : charger,
           ),

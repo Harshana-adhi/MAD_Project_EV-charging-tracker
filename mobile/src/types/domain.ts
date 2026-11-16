@@ -72,6 +72,7 @@ export interface StationSummary extends Station {
   reviewCount: number;
   chargerCount: number;
   availableCount: number;
+  onlineCount: number;
   connectors: ConnectorType[];
   minRate: number | null;
   maxPowerKw: number | null;

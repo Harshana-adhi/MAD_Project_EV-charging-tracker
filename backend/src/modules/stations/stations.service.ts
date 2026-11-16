@@ -23,6 +23,9 @@ function distanceKm(a: LatLng, b: LatLng): number {
 
 function summariseStation(station: StationWithRelations, near?: LatLng) {
   const availableCount = station.chargers.filter((c) => c.status === 'available').length;
+  // Chargers that are "online" (available or busy) vs fully offline – needed to tell a
+  // station that's just busy right now apart from one the owner has taken offline.
+  const onlineCount = station.chargers.filter((c) => c.status !== 'offline').length;
   const connectors = [...new Set(station.chargers.map((c) => c.connector))];
   const rates = station.chargers.map((c) => toNumber(c.ratePerKwh) as number);
   const powers = station.chargers.map((c) => toNumber(c.powerKw) as number);
@@ -47,6 +50,7 @@ function summariseStation(station: StationWithRelations, near?: LatLng) {
     createdAt: station.createdAt,
     chargerCount: station.chargers.length,
     availableCount,
+    onlineCount,
     connectors,
     minRate: rates.length === 0 ? null : Math.min(...rates),
     maxPowerKw: powers.length === 0 ? null : Math.max(...powers),
@@ -58,6 +62,18 @@ function summariseStation(station: StationWithRelations, near?: LatLng) {
 
 export function summariseStations(stations: StationWithRelations[], near?: LatLng) {
   return stations.map((station) => summariseStation(station, near));
+}
+
+// Used by real-time charger:status broadcasts so clients can set the station's map marker
+// correctly (available/busy/offline) without guessing from a single charger's new status.
+export async function getStationStatusCounts(stationId: string) {
+  const chargers = await prisma.charger.findMany({
+    where: { stationId },
+    select: { status: true },
+  });
+  const availableCount = chargers.filter((c) => c.status === 'available').length;
+  const onlineCount = chargers.filter((c) => c.status !== 'offline').length;
+  return { availableCount, onlineCount };
 }
 
 export type StationFilters = {
