@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { AppButton, AppTextInput, Card, ConfirmDialog, EmptyState, ErrorView, LoadingView, Screen, StatusBadge, useSnackbar } from '@/components';
-import { useOwnerWithdrawals, useRequestWithdrawal } from '@/features/owner';
-import { useMyWallet } from '@/features/wallet/hooks';
+import { useOwnerWallet, useOwnerWithdrawals, useRequestWithdrawal } from '@/features/owner';
 import { errorMessage } from '@/lib/errors';
 import { formatCredits, formatDate } from '@/lib/format';
 import { spacing, useAppTheme } from '@/lib/theme';
@@ -11,7 +10,7 @@ import { spacing, useAppTheme } from '@/lib/theme';
 export default function OwnerWalletScreen() {
   const theme = useAppTheme();
   const snackbar = useSnackbar();
-  const wallet = useMyWallet();
+  const wallet = useOwnerWallet();
   const withdrawals = useOwnerWithdrawals();
   const request = useRequestWithdrawal();
   const [amountText, setAmountText] = useState('');

@@ -4,13 +4,28 @@ import type { ChargerInput, StationInput } from '@/types/domain';
 import { onEvent } from '@/lib/socket';
 import { USE_MOCKS } from '@/lib/config';
 import { WALLET_QUERY_KEY } from '@/features/wallet/hooks';
-import type { Wallet } from '@/types/domain';
+import * as walletApi from '@/features/wallet/api';
 import type { OwnerPhotoUpload } from './api';
+import { getOwnerWallet } from './api.mock';
 import { api } from './client';
 
 export const OWNER_STATIONS_QUERY_KEY = ['owner', 'stations'];
 export const OWNER_SESSIONS_QUERY_KEY = ['owner', 'sessions'];
 export const OWNER_WITHDRAWALS_QUERY_KEY = ['owner', 'withdrawals'];
+
+export function useOwnerWallet() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    return onEvent('wallet:updated', () => {
+      queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
+    });
+  }, [queryClient]);
+
+  return useQuery({
+    queryKey: WALLET_QUERY_KEY,
+    queryFn: () => (USE_MOCKS ? getOwnerWallet() : walletApi.getMyWallet()),
+  });
+}
 
 export function useOwnerStations() {
   const queryClient = useQueryClient();
@@ -148,21 +163,9 @@ export function useRequestWithdrawal() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { amount: number; bankNote: string }) => api.requestWithdrawal(input),
-    onSuccess: async (_withdrawal, input) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: OWNER_WITHDRAWALS_QUERY_KEY });
-      if (USE_MOCKS) {
-        queryClient.setQueryData<Wallet>(WALLET_QUERY_KEY, (current) =>
-          current
-            ? {
-                ...current,
-                held: current.held + input.amount,
-                available: current.available - input.amount,
-              }
-            : current,
-        );
-      } else {
-        await queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
-      }
+      await queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
     },
   });
 }

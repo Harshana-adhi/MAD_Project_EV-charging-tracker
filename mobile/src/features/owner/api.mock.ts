@@ -1,5 +1,5 @@
-import { mockStationDetail } from '@/mocks/fixtures';
-import { mockWallet } from '@/mocks/fixtures';
+import { getCurrentMockUser } from '@/mocks/currentUser';
+import { mockStationDetail, mockWallet } from '@/mocks/fixtures';
 import type {
   Charger,
   ChargerInput,
@@ -8,6 +8,7 @@ import type {
   StationDetail,
   StationInput,
   Withdrawal,
+  Wallet,
 } from '@/types/domain';
 import type { OwnerPhotoUpload } from './api';
 
@@ -49,36 +50,58 @@ const rejectedStation: StationDetail = {
   maxPowerKw: null,
 };
 
-let stations: StationDetail[] = [approvedStation, pendingStation, rejectedStation];
+type OwnerMockData = {
+  stations: StationDetail[];
+  sessions: SessionWithNames[];
+  withdrawals: Withdrawal[];
+  wallet: Wallet;
+};
 
-let ownerSessions: SessionWithNames[] = [
-  {
-    id: 'owner-session-completed',
-    customerId: 'customer-1',
-    chargerId: approvedStation.chargers[0].id,
-    stationId: approvedStation.id,
-    spendingLimit: 500,
-    kwh: 3,
-    cost: 300,
-    commission: 15,
-    status: 'completed',
-    disputeReason: null,
-    startedAt: now,
-    endedAt: now,
-    stationName: approvedStation.name,
-    chargerLabel: approvedStation.chargers[0].label,
-    connector: approvedStation.chargers[0].connector,
-    powerKw: approvedStation.chargers[0].powerKw,
-    ratePerKwh: approvedStation.chargers[0].ratePerKwh,
-    customerName: 'Amal P.',
-    hasReview: false,
-  },
-];
+const initialOwnerWallet: Wallet = { ...mockWallet };
 
-let ownerWithdrawals: Withdrawal[] = [];
+const initialOwnerMockData: OwnerMockData = {
+  stations: [approvedStation, pendingStation, rejectedStation],
+  sessions: [
+    {
+      id: 'owner-session-completed',
+      customerId: 'customer-1',
+      chargerId: approvedStation.chargers[0].id,
+      stationId: approvedStation.id,
+      spendingLimit: 500,
+      kwh: 3,
+      cost: 300,
+      commission: 15,
+      status: 'completed',
+      disputeReason: null,
+      startedAt: now,
+      endedAt: now,
+      stationName: approvedStation.name,
+      chargerLabel: approvedStation.chargers[0].label,
+      connector: approvedStation.chargers[0].connector,
+      powerKw: approvedStation.chargers[0].powerKw,
+      ratePerKwh: approvedStation.chargers[0].ratePerKwh,
+      customerName: 'Amal P.',
+      hasReview: false,
+    },
+  ],
+  withdrawals: [],
+  wallet: { ...initialOwnerWallet },
+};
 
-function requireStation(id: string): StationDetail {
-  const station = stations.find((item) => item.id === id);
+const ownerDataByUserId = new Map<string, OwnerMockData>([['owner-1', initialOwnerMockData]]);
+
+function getOwnerMockData(): OwnerMockData {
+  const ownerId = getCurrentMockUser().id;
+  let data = ownerDataByUserId.get(ownerId);
+  if (!data) {
+    data = { stations: [], sessions: [], withdrawals: [], wallet: { ...initialOwnerWallet } };
+    ownerDataByUserId.set(ownerId, data);
+  }
+  return data;
+}
+
+function requireStation(data: OwnerMockData, id: string): StationDetail {
+  const station = data.stations.find((item) => item.id === id);
   if (!station) throw new Error('NOT_FOUND');
   return station;
 }
@@ -98,13 +121,15 @@ function withStationSummary(station: StationDetail, chargers: Charger[]): Statio
 }
 
 export async function listMyStations(): Promise<StationDetail[]> {
+  const { stations } = getOwnerMockData();
   return stations.map((station) => ({ ...station, chargers: station.chargers.map((item) => ({ ...item })) }));
 }
 
 export async function createStation(input: StationInput): Promise<StationDetail> {
+  const data = getOwnerMockData();
   const station: StationDetail = {
     id: `owner-station-${Date.now()}`,
-    ownerId: 'owner-1',
+    ownerId: getCurrentMockUser().id,
     ...input,
     description: input.description ?? null,
     photos: [],
@@ -120,7 +145,7 @@ export async function createStation(input: StationInput): Promise<StationDetail>
     maxPowerKw: null,
     chargers: [],
   };
-  stations = [station, ...stations];
+  data.stations = [station, ...data.stations];
   return station;
 }
 
@@ -128,14 +153,15 @@ export async function updateStation(
   id: string,
   input: Partial<StationInput>,
 ): Promise<StationDetail> {
-  const station = requireStation(id);
+  const data = getOwnerMockData();
+  const station = requireStation(data, id);
   const updated = {
     ...station,
     ...input,
     status: station.status === 'rejected' ? 'pending' as const : station.status,
     rejectReason: station.status === 'rejected' ? null : station.rejectReason,
   };
-  stations = stations.map((item) => (item.id === id ? updated : item));
+  data.stations = data.stations.map((item) => (item.id === id ? updated : item));
   return updated;
 }
 
@@ -143,17 +169,19 @@ export async function uploadStationPhoto(
   id: string,
   photo: OwnerPhotoUpload,
 ): Promise<{ url: string }> {
-  const station = requireStation(id);
+  const data = getOwnerMockData();
+  const station = requireStation(data, id);
   if (station.photos.length >= 3) throw new Error('VALIDATION_ERROR');
   const url = photo.uri;
-  stations = stations.map((item) =>
+  data.stations = data.stations.map((item) =>
     item.id === id ? { ...item, photos: [...item.photos, url] } : item,
   );
   return { url };
 }
 
 export async function createCharger(stationId: string, input: ChargerInput): Promise<Charger> {
-  const station = requireStation(stationId);
+  const data = getOwnerMockData();
+  const station = requireStation(data, stationId);
   const qrToken = Math.random().toString(36).slice(2).padEnd(12, '0').slice(0, 12);
   const charger: Charger = {
     id: `owner-charger-${Date.now()}`,
@@ -162,15 +190,16 @@ export async function createCharger(stationId: string, input: ChargerInput): Pro
     status: 'available',
     qrToken,
   };
-  stations = stations.map((item) =>
+  data.stations = data.stations.map((item) =>
     item.id === stationId ? withStationSummary(station, [...station.chargers, charger]) : item,
   );
   return charger;
 }
 
 export async function updateCharger(id: string, input: Partial<ChargerInput>): Promise<Charger> {
+  const data = getOwnerMockData();
   let updated: Charger | undefined;
-  stations = stations.map((station) =>
+  data.stations = data.stations.map((station) =>
     withStationSummary(
       station,
       station.chargers.map((charger) => {
@@ -185,15 +214,16 @@ export async function updateCharger(id: string, input: Partial<ChargerInput>): P
 }
 
 export async function deleteCharger(id: string): Promise<{ id: string }> {
-  const station = stations.find((item) => item.chargers.some((charger) => charger.id === id));
+  const data = getOwnerMockData();
+  const station = data.stations.find((item) => item.chargers.some((charger) => charger.id === id));
   if (!station) throw new Error('NOT_FOUND');
   if (station.chargers.find((charger) => charger.id === id)?.status === 'busy') {
     throw new Error('CHARGER_BUSY');
   }
-  if (ownerSessions.some((session) => session.chargerId === id)) {
+  if (data.sessions.some((session) => session.chargerId === id)) {
     throw new Error('Charger has session history – set it offline instead');
   }
-  stations = stations.map((item) =>
+  data.stations = data.stations.map((item) =>
     item.id === station.id
       ? withStationSummary(item, item.chargers.filter((charger) => charger.id !== id))
       : item,
@@ -205,14 +235,15 @@ export async function setChargerStatus(
   id: string,
   status: 'available' | 'offline',
 ): Promise<Charger> {
-  const currentStation = stations.find((item) => item.chargers.some((charger) => charger.id === id));
+  const data = getOwnerMockData();
+  const currentStation = data.stations.find((item) => item.chargers.some((charger) => charger.id === id));
   if (!currentStation) throw new Error('NOT_FOUND');
   if (currentStation.chargers.find((charger) => charger.id === id)?.status === 'busy') {
     throw new Error('CHARGER_BUSY');
   }
 
   let updated: Charger | undefined;
-  stations = stations.map((station) =>
+  data.stations = data.stations.map((station) =>
     withStationSummary(
       station,
       station.chargers.map((charger) => {
@@ -231,20 +262,21 @@ export function chargerQrValue(qrToken: string): string {
 }
 
 export async function listOwnerSessions(): Promise<SessionWithNames[]> {
-  return ownerSessions.map((session) => ({ ...session }));
+  return getOwnerMockData().sessions.map((session) => ({ ...session }));
 }
 
 export async function disputeSession(id: string, reason: string): Promise<SessionWithNames> {
+  const data = getOwnerMockData();
   const trimmedReason = reason.trim();
   if (trimmedReason.length < 10 || trimmedReason.length > 300) throw new Error('VALIDATION_ERROR');
-  const session = ownerSessions.find((item) => item.id === id);
+  const session = data.sessions.find((item) => item.id === id);
   if (!session) throw new Error('NOT_FOUND');
   if (session.status !== 'completed' || !session.endedAt) throw new Error('DISPUTE_WINDOW_CLOSED');
   if (Date.now() - new Date(session.endedAt).getTime() > 24 * 60 * 60 * 1000) {
     throw new Error('DISPUTE_WINDOW_CLOSED');
   }
   const updated = { ...session, status: 'disputed' as const, disputeReason: trimmedReason };
-  ownerSessions = ownerSessions.map((item) => (item.id === id ? updated : item));
+  data.sessions = data.sessions.map((item) => (item.id === id ? updated : item));
   return updated;
 }
 
@@ -269,15 +301,20 @@ export async function getOwnerEarnings(from: string, to: string): Promise<Earnin
 }
 
 export async function listMyWithdrawals(): Promise<Withdrawal[]> {
-  return ownerWithdrawals.map((withdrawal) => ({ ...withdrawal }));
+  return getOwnerMockData().withdrawals.map((withdrawal) => ({ ...withdrawal }));
+}
+
+export async function getOwnerWallet(): Promise<Wallet> {
+  return { ...getOwnerMockData().wallet };
 }
 
 export async function requestWithdrawal(input: { amount: number; bankNote: string }): Promise<Withdrawal> {
+  const data = getOwnerMockData();
   const bankNote = input.bankNote.trim();
   if (input.amount < 500 || Math.round(input.amount * 100) !== input.amount * 100 || bankNote.length < 5 || bankNote.length > 200) {
     throw new Error('VALIDATION_ERROR');
   }
-  if (input.amount > mockWallet.available) throw new Error('INSUFFICIENT_BALANCE');
+  if (input.amount > data.wallet.available) throw new Error('INSUFFICIENT_BALANCE');
   const withdrawal: Withdrawal = {
     id: `owner-withdrawal-${Date.now()}`,
     amount: input.amount,
@@ -285,6 +322,11 @@ export async function requestWithdrawal(input: { amount: number; bankNote: strin
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
-  ownerWithdrawals = [withdrawal, ...ownerWithdrawals];
+  data.wallet = {
+    ...data.wallet,
+    held: data.wallet.held + input.amount,
+    available: data.wallet.available - input.amount,
+  };
+  data.withdrawals = [withdrawal, ...data.withdrawals];
   return withdrawal;
 }
