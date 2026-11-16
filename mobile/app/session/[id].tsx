@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { IconButton, Text } from 'react-native-paper';
 import { AppButton, ConfirmDialog, ErrorView, LoadingView, Screen } from '@/components';
 import { Meter, useMeter } from '@/features/session/Meter';
+import { meterReading } from '@/features/session/meterReading';
 import { useCancelSession, useEndSession, useSession, useSessionEvents } from '@/features/session/hooks';
 import type { SessionWithNames } from '@/types/domain';
 import { errorMessage } from '@/lib/errors';
@@ -11,7 +12,10 @@ import { spacing, useAppTheme } from '@/lib/theme';
 
 function ActiveSession({ session }: { session: SessionWithNames }) {
   const theme = useAppTheme();
-  const reading = useMeter(session);
+  // Set the moment the customer confirms Stop, so the meter stops counting straight away
+  // instead of running on until the server answers.
+  const [stoppedAt, setStoppedAt] = useState<number | null>(null);
+  const reading = useMeter(session, stoppedAt);
   const end = useEndSession();
   const cancel = useCancelSession();
   const finishing = useRef(false);
@@ -22,18 +26,22 @@ function ActiveSession({ session }: { session: SessionWithNames }) {
   const finish = useCallback(async (automatic: boolean) => {
     if (finishing.current) return;
     finishing.current = true;
+    const pressedAt = Date.now();
+    setStoppedAt(pressedAt);
     const measuredKwh = automatic
       ? Math.ceil((session.spendingLimit / session.ratePerKwh) * 100) / 100
-      : Math.round(reading.kwh * 100) / 100;
+      : Math.round(meterReading(session, pressedAt).kwh * 100) / 100;
     const kwh = Math.min(500, Math.max(0.01, measuredKwh));
     try {
       await end.mutateAsync({ id: session.id, kwh });
       router.replace({ pathname: '/receipt/[id]', params: { id: session.id } });
     } catch (error) {
       finishing.current = false;
+      // The stop did not go through, so charging is still running: let the meter carry on.
+      setStoppedAt(null);
       setActionError(errorMessage(error));
     }
-  }, [end, reading.kwh, session.id, session.ratePerKwh, session.spendingLimit]);
+  }, [end, session]);
 
   useEffect(() => {
     if (reading.progress >= 1) void finish(true);
@@ -56,7 +64,7 @@ function ActiveSession({ session }: { session: SessionWithNames }) {
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <IconButton icon="arrow-left" accessibilityLabel="Back to sessions" onPress={() => router.replace('/(customer)/sessions')} />
-        <Text variant="titleLarge">Charging in progress</Text>
+        <Text variant="titleLarge">{stoppedAt ? 'Stopping…' : 'Charging in progress'}</Text>
       </View>
       <View style={{ flex: 1, justifyContent: 'center', gap: spacing.xl }}>
         <View>
