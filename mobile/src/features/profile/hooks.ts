@@ -29,8 +29,9 @@ export function useUpdateProfile() {
   });
 }
 
-export function useVehicles() {
-  return useQuery({ queryKey: useVehiclesKey(), queryFn: api.listVehicles });
+// Only customers have vehicles, so other screens pass enabled=false for owners, admins and guests.
+export function useVehicles(enabled = true) {
+  return useQuery({ queryKey: useVehiclesKey(), queryFn: api.listVehicles, enabled });
 }
 
 export function useCreateVehicle() {
