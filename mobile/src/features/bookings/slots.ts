@@ -80,6 +80,30 @@ export function colomboInstant(dateValue: string, minutesOfDay: number): Date {
   return new Date(new Date(`${dateValue}T00:00:00.000Z`).getTime() - COLOMBO_OFFSET_MS + minutesOfDay * 60 * 1000);
 }
 
+export type TimeRange = { start: Date; end: Date };
+
+// The open stretches of one Colombo day on one port: opening hours minus bookings, and for
+// today minus the time already gone (rounded up to the next half hour).
+export function freeWindows(openingHours: string, dateValue: string, booked: TimeRange[]): TimeRange[] {
+  const hours = parseOpeningHours(openingHours) ?? { openMin: 0, closeMin: 24 * 60 };
+  let cursor = colomboInstant(dateValue, hours.openMin).getTime();
+  const close = colomboInstant(dateValue, hours.closeMin).getTime();
+  const halfHour = 30 * 60 * 1000;
+  cursor = Math.max(cursor, Math.ceil(Date.now() / halfHour) * halfHour);
+
+  const windows: TimeRange[] = [];
+  const sorted = [...booked].sort((a, b) => a.start.getTime() - b.start.getTime());
+  for (const range of sorted) {
+    if (range.start.getTime() > cursor) {
+      windows.push({ start: new Date(cursor), end: new Date(Math.min(range.start.getTime(), close)) });
+    }
+    cursor = Math.max(cursor, range.end.getTime());
+    if (cursor >= close) break;
+  }
+  if (cursor < close) windows.push({ start: new Date(cursor), end: new Date(close) });
+  return windows.filter((window) => window.end > window.start);
+}
+
 // Most a customer pays if the charger runs at full power for the whole slot.
 export function slotCost(powerKw: number, ratePerKwh: number, minutes: number): number {
   return Math.round(powerKw * (minutes / 60) * ratePerKwh);

@@ -68,7 +68,9 @@ export async function listStationBookings(stationId: string, date: string) {
     where: {
       stationId,
       status: { in: ['booked', 'used'] },
-      startAt: { gte: dayStart, lt: dayEnd },
+      // Any booking that touches this day, including one that started the night before.
+      startAt: { lt: dayEnd },
+      endAt: { gt: dayStart },
     },
     orderBy: { startAt: 'asc' },
   });
@@ -122,7 +124,8 @@ export async function createBooking(
     const overlapping = await tx.booking.findFirst({
       where: {
         chargerId: input.chargerId,
-        status: 'booked',
+        // A booking the customer has already started charging on still holds its slot.
+        status: { in: ['booked', 'used'] },
         startAt: { lt: endAt },
         endAt: { gt: startAt },
       },
