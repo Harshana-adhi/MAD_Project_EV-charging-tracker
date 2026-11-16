@@ -124,8 +124,7 @@ export async function startSession(customerId: string, input: { qrToken: string;
   });
   if (chargerForSweep) await runBookingSweep();
 
-  let usedBooking: { id: string; chargerId: string; stationId: string; startAt: Date } | null = null;
-  const { session, ownerId } = await withTx(async (tx) => {
+  const { session, ownerId, usedBooking } = await withTx(async (tx) => {
     // These locks prevent concurrent starts by one customer or on one charger.
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${customerId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM chargers WHERE qr_token = ${input.qrToken} FOR UPDATE`;
@@ -168,11 +167,12 @@ export async function startSession(customerId: string, input: { qrToken: string;
     });
     await tx.charger.update({ where: { id: charger.id }, data: { status: 'busy' } });
 
+    let usedBooking: { chargerId: string; stationId: string; startAt: Date } | null = null;
     if (guarding && guarding.customerId === customerId) {
       await tx.booking.update({ where: { id: guarding.id }, data: { status: 'used', sessionId: session.id } });
-      usedBooking = { id: guarding.id, chargerId: guarding.chargerId, stationId: guarding.stationId, startAt: guarding.startAt };
+      usedBooking = { chargerId: guarding.chargerId, stationId: guarding.stationId, startAt: guarding.startAt };
     }
-    return { session, ownerId: charger.station.ownerId };
+    return { session, ownerId: charger.station.ownerId, usedBooking };
   });
 
   await publishStatus(session, ownerId, 'busy');
