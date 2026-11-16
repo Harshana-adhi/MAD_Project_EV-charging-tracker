@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Chip, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import {
   AppButton,
   Card,
@@ -23,15 +23,24 @@ export default function OwnerReviewsScreen() {
   const snackbar = useSnackbar();
   const reviews = useOwnerReviews();
   const deleteReview = useDeleteOwnerReview();
-  const [stationId, setStationId] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<OwnerReview | null>(null);
 
-  const stations = useMemo(() => {
-    const names = new Map<string, string>();
-    (reviews.data ?? []).forEach((review) => names.set(review.stationId, review.stationName));
-    return [...names.entries()];
+  const groups = useMemo(() => {
+    const byStation = new Map<string, { name: string; reviews: OwnerReview[] }>();
+    (reviews.data ?? []).forEach((review) => {
+      const group = byStation.get(review.stationId) ?? { name: review.stationName, reviews: [] };
+      group.reviews.push(review);
+      byStation.set(review.stationId, group);
+    });
+    return [...byStation.entries()]
+      .map(([id, group]) => ({
+        id,
+        name: group.name,
+        reviews: group.reviews,
+        average: group.reviews.reduce((sum, review) => sum + review.rating, 0) / group.reviews.length,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [reviews.data]);
-  const visible = (reviews.data ?? []).filter((review) => !stationId || review.stationId === stationId);
 
   async function confirmDelete() {
     if (!toDelete) return;
@@ -53,29 +62,31 @@ export default function OwnerReviewsScreen() {
         {reviews.isSuccess && reviews.data.length === 0 ? (
           <EmptyState icon="star-outline" title="No reviews yet" message="Customer reviews of your stations will appear here." />
         ) : null}
-        {stations.length > 1 ? (
-          <View style={styles.chips}>
-            <Chip selected={!stationId} onPress={() => setStationId(null)}>All stations</Chip>
-            {stations.map(([id, name]) => (
-              <Chip key={id} selected={stationId === id} onPress={() => setStationId(id)}>{name}</Chip>
+        {groups.map((group) => (
+          <View key={group.id} style={styles.group}>
+            <View style={styles.groupHeader}>
+              <Text variant="titleMedium" style={styles.groupName}>{group.name}</Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                {group.average.toFixed(1)} ★ · {group.reviews.length} {group.reviews.length === 1 ? 'review' : 'reviews'}
+              </Text>
+            </View>
+            {group.reviews.map((review) => (
+              <Card key={review.id} title={review.customerName} subtitle={formatDate(review.createdAt)}>
+                <View style={styles.body}>
+                  <RatingStars value={review.rating} size={16} />
+                  {review.comment ? <Text variant="bodyMedium">{review.comment}</Text> : null}
+                  <AppButton
+                    label="Delete review"
+                    icon="delete-outline"
+                    mode="text"
+                    danger
+                    onPress={() => setToDelete(review)}
+                    style={styles.delete}
+                  />
+                </View>
+              </Card>
             ))}
           </View>
-        ) : null}
-        {visible.map((review) => (
-          <Card key={review.id} title={review.customerName} subtitle={`${review.stationName} · ${formatDate(review.createdAt)}`}>
-            <View style={styles.body}>
-              <RatingStars value={review.rating} size={16} />
-              {review.comment ? <Text variant="bodyMedium">{review.comment}</Text> : null}
-              <AppButton
-                label="Delete review"
-                icon="delete-outline"
-                mode="text"
-                danger
-                onPress={() => setToDelete(review)}
-                style={styles.delete}
-              />
-            </View>
-          </Card>
         ))}
       </View>
       <ConfirmDialog
@@ -93,7 +104,9 @@ export default function OwnerReviewsScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  group: { gap: spacing.sm },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginTop: spacing.sm },
+  groupName: { flex: 1 },
   body: { gap: spacing.sm },
   delete: { alignSelf: 'flex-end' },
 });
