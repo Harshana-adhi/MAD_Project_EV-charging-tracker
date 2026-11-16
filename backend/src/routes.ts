@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { config } from './config';
 import { runBookingSweep } from './core/booking.jobs';
 import { runSessionSweep } from './core/session.jobs';
+import { runChargerSweep } from './core/charger.jobs';
 import { router as authRouter } from './modules/auth/auth.routes';
 import { router as walletRouter } from './modules/wallet/wallet.routes';
 import { router as profileRouter } from './modules/profile/profile.routes';
@@ -34,7 +35,7 @@ routes.post('/internal/run-booking-jobs', (req, res, next) => {
   if (!config.cronSecret || req.header('x-cron-secret') !== config.cronSecret) {
     return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Invalid cron secret' } });
   }
-  Promise.all([runBookingSweep(), runSessionSweep()])
+  Promise.all([runBookingSweep(), runSessionSweep(), runChargerSweep()])
     .then(() => res.json({ ok: true }))
     .catch(next);
 });
