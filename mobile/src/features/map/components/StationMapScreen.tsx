@@ -122,6 +122,7 @@ export function StationMapScreen() {
             me={location}
             tileStyle={tileStyle}
             onSelectStation={setSelectedId}
+            onMapPress={() => setSelectedId(null)}
           />
 
           <Surface
@@ -227,6 +228,7 @@ export function StationMapScreen() {
             <View style={[styles.bottomCard, { backgroundColor: theme.colors.surface }]}>
               <StationCard
                 station={selectedStation}
+                onClose={() => setSelectedId(null)}
                 actions={
                   <AppButton
                     label="Details"

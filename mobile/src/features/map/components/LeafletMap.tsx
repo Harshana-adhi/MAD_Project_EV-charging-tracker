@@ -152,6 +152,11 @@ const HTML = `<!DOCTYPE html>
         .catch(() => drawRoute(straight));
     };
 
+    // A tap on empty map (not a marker) lets the screen close the station card.
+    map.on('click', () => {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapTap' }));
+    });
+
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
   </script>
 </body>
@@ -170,10 +175,11 @@ type LeafletMapProps = {
   me?: { lat: number; lng: number } | null;
   tileStyle: TileStyle;
   onSelectStation: (id: string) => void;
+  onMapPress?: () => void;
 };
 
 export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(function LeafletMap(
-  { stations, me, tileStyle, onSelectStation },
+  { stations, me, tileStyle, onSelectStation, onMapPress },
   ref,
 ) {
   const webviewRef = useRef<WebView>(null);
@@ -214,6 +220,8 @@ export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(function
           sendData();
         } else if (message.type === 'select') {
           onSelectStation(message.id);
+        } else if (message.type === 'mapTap') {
+          onMapPress?.();
         }
       }}
     />
