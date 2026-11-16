@@ -14,6 +14,7 @@ import {
   useSnackbar,
 } from '@/components';
 import { BookingCalendar } from '@/features/bookings/BookingCalendar';
+import { TimeWheelPicker } from '@/features/bookings/TimeWheelPicker';
 import { useCreateBooking, useStationBookings } from '@/features/bookings/hooks';
 import {
   TARGET_OPTIONS,
@@ -28,9 +29,13 @@ import {
   addDays,
   colomboDateString,
   colomboInstant,
+  colomboMinutes,
+  formatClock,
+  minutesToText,
   formatDay,
   freeWindows,
   generateSlotStarts,
+  parseOpeningHours,
   type TimeRange,
   parseTypedTime,
 } from '@/features/bookings/slots';
@@ -38,7 +43,6 @@ import { useStation } from '@/features/map/hooks';
 import { useVehicles } from '@/features/profile/hooks';
 import { vehicleForConnector } from '@/features/profile/vehicleFit';
 import { errorMessage } from '@/lib/errors';
-import { formatTime } from '@/lib/format';
 import { spacing, useAppTheme } from '@/lib/theme';
 import type { Charger, TakenSlot } from '@/types/domain';
 
@@ -61,6 +65,7 @@ export default function NewBookingScreen() {
   const [amountText, setAmountText] = useState('');
   const [day, setDay] = useState(today);
   const [timeText, setTimeText] = useState('');
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [pendingDay, setPendingDay] = useState(today);
   const [submitError, setSubmitError] = useState('');
@@ -97,7 +102,7 @@ export default function NewBookingScreen() {
     );
   }
 
-  // What is already booked on the chosen port that day, and the free stretches between, shown to
+  // What is already booked on the chosen port that day, and when it is free, shown to
   // every customer (times only, never who booked) so they can pick a time that works.
   const dayStart = colomboInstant(day, 0);
   const dayEnd = colomboInstant(day, 24 * 60);
@@ -109,16 +114,20 @@ export default function NewBookingScreen() {
     }))
     .sort((a, b) => a.start.getTime() - b.start.getTime());
   const openRanges = station.data ? freeWindows(station.data.openingHours, day, bookedRanges) : [];
-  const rangeText = (range: TimeRange) =>
-    `${formatTime(range.start.toISOString())}–${range.end >= dayEnd ? '24:00' : formatTime(range.end.toISOString())}`;
 
-  // Checks the typed start time and says plainly what is wrong with it.
-  function checkTime(): { startAt: Date | null; problem: string | null; suggestion: Date | null } {
+  function openCalendar() {
+    setPendingDay(day);
+    setCalendarOpen(true);
+  }
+
+
+  // Checks a start time ("HH:MM") and says plainly what is wrong with it.
+  function checkTime(text = timeText): { startAt: Date | null; problem: string | null; suggestion: Date | null } {
     const none = { startAt: null, problem: null, suggestion: null };
-    if (!timeText.trim()) return none;
-    const minutes = parseTypedTime(timeText);
-    if (minutes === null) return { ...none, problem: 'Type the time like 14:30 (24-hour clock).' };
-    if (minutes % 30 !== 0) return { ...none, problem: 'Bookings start on the hour or half hour, like 14:00 or 14:30.' };
+    if (!text.trim()) return none;
+    const minutes = parseTypedTime(text);
+    if (minutes === null) return { ...none, problem: 'Choose a start time.' };
+    if (minutes % 30 !== 0) return { ...none, problem: 'Bookings start on the hour or half hour.' };
     const startAt = colomboInstant(day, minutes);
     if (startAt.getTime() < Date.now()) return { ...none, problem: 'That time has already passed. Choose a later time.' };
     if (!slotStarts.some((slot) => slot.getTime() === startAt.getTime())) {
@@ -132,21 +141,6 @@ export default function NewBookingScreen() {
       return { startAt: null, problem: `${selectedCharger?.label} is already booked at that time.`, suggestion };
     }
     return { startAt, problem: null, suggestion: null };
-  }
-
-  function typeTime(text: string) {
-    let clean = text.replace(/[^0-9:]/g, '').slice(0, 5);
-    // "1430" becomes "14:30" so a number keypad is enough.
-    if (!clean.includes(':') && clean.length === 4) clean = `${clean.slice(0, 2)}:${clean.slice(2)}`;
-    setTimeText(clean);
-    setSubmitError('');
-  }
-
-  function tidyTime() {
-    const minutes = parseTypedTime(timeText);
-    if (minutes !== null) {
-      setTimeText(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
-    }
   }
 
   async function confirmBooking(startAt: Date) {
@@ -172,6 +166,15 @@ export default function NewBookingScreen() {
   const option = TARGET_OPTIONS[targetType];
   const time = checkTime();
   const dayLabel = day === today ? 'Today' : day === addDays(today, 1) ? 'Tomorrow' : formatDay(day);
+  // Words for the plain "what's booked" message under the date.
+  const isToday = day === today;
+  const portName = selectedCharger?.label ?? 'This port';
+  const dayWords = isToday ? 'today' : dayLabel === 'Tomorrow' ? 'tomorrow' : `on ${formatDay(day)}`;
+  const openMinute = station.data ? (parseOpeningHours(station.data.openingHours)?.openMin ?? 0) : 0;
+  const firstFree = openRanges[0];
+  const someTimePassed = isToday && !!firstFree && firstFree.start > colomboInstant(day, openMinute);
+  const timeText24 = (range: TimeRange) =>
+    `${formatClock(range.start)} – ${range.end >= dayEnd ? 'midnight' : formatClock(range.end)}`;
   const endAt = time.startAt ? new Date(time.startAt.getTime() + slotMinutes * 60 * 1000) : null;
   const amountProblem = amountText && !target ? 'Type a number.' : plan?.problem ?? null;
   // Never confirm before the booked times are known, so a taken time can't slip through.
@@ -193,7 +196,7 @@ export default function NewBookingScreen() {
           <View style={styles.flex}>
             <Text variant="titleSmall" numberOfLines={1}>
               {selectedCharger.label} · {dayLabel}
-              {time.startAt && endAt ? ` ${formatTime(time.startAt.toISOString())}–${formatTime(endAt.toISOString())}` : ''}
+              {time.startAt && endAt ? ` ${formatClock(time.startAt)} – ${formatClock(endAt)}` : ''}
             </Text>
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
               {target && plan && !plan.problem ? `${formatTargetValue(target)} · ≈ ${plan.kwh.toFixed(1)} kWh` : 'Fill in the steps above'}
@@ -353,10 +356,7 @@ export default function NewBookingScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Date, ${formatDay(day)}. Change date`}
-            onPress={() => {
-              setPendingDay(day);
-              setCalendarOpen(true);
-            }}
+            onPress={openCalendar}
             style={({ pressed }) => [
               styles.dateField,
               {
@@ -378,6 +378,57 @@ export default function NewBookingScreen() {
               Change
             </Text>
           </Pressable>
+          {takenSlots.isLoading ? (
+            <Text variant="bodySmall" style={[styles.bookedNote, { color: theme.colors.onSurfaceVariant }]}>
+              Checking bookings for this day…
+            </Text>
+          ) : takenSlots.isError ? (
+            <View style={[styles.timeProblem, styles.bookedNote]}>
+              <Text variant="bodySmall" style={[styles.flex, { color: theme.colors.error }]}>
+                Couldn't load the booked times. Check your connection.
+              </Text>
+              <Button compact mode="contained-tonal" onPress={() => void takenSlots.refetch()}>
+                Retry
+              </Button>
+            </View>
+          ) : bookedRanges.length > 0 ? (
+            <View style={[styles.bookedBox, { backgroundColor: theme.colors.errorContainer }]}>
+              <MaterialCommunityIcons name="calendar-remove" size={22} color={theme.colors.onErrorContainer} />
+              <View style={styles.flex}>
+                <Text variant="titleSmall" style={{ color: theme.colors.onErrorContainer }}>
+                  {portName} is already booked {dayWords} at:
+                </Text>
+                {bookedRanges.map((range) => (
+                  <Text key={range.start.toISOString()} variant="bodyLarge" style={{ color: theme.colors.onErrorContainer }}>
+                    {'\u2022'} {timeText24(range)}
+                  </Text>
+                ))}
+                <Text variant="bodySmall" style={{ color: theme.colors.onErrorContainer }}>
+                  {openRanges.length === 0
+                    ? 'There is no free time left this day. Choose another date.'
+                    : someTimePassed
+                      ? `Any other time from ${formatClock(firstFree.start)} is free to book.`
+                      : 'Any other time is free to book.'}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.bookedBox, { backgroundColor: theme.colors.primaryContainer }]}>
+              <MaterialCommunityIcons name="calendar-check" size={22} color={theme.colors.onPrimaryContainer} />
+              <View style={styles.flex}>
+                <Text variant="titleSmall" style={{ color: theme.colors.onPrimaryContainer }}>
+                  No one has booked {portName} {dayWords} yet
+                </Text>
+                <Text variant="bodySmall" style={{ color: theme.colors.onPrimaryContainer }}>
+                  {openRanges.length === 0
+                    ? 'The station has no time left this day. Choose another date.'
+                    : someTimePassed
+                      ? `Earlier times today have passed, so you can book any time from ${formatClock(firstFree.start)}.`
+                      : 'You can book any time the station is open.'}
+                </Text>
+              </View>
+            </View>
+          )}
           <Portal>
             <Dialog visible={calendarOpen} onDismiss={() => setCalendarOpen(false)} style={styles.dateDialog}>
               <View style={[styles.dateDialogHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
@@ -409,119 +460,77 @@ export default function NewBookingScreen() {
           </Portal>
 
           <Step number={4} title="Start time" hint={`${dayLabel}${plan && !plan.problem ? ` · holds ${formatMinutes(slotMinutes)}` : ''}`} />
-          <View style={[styles.dayCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
-            <Text variant="labelLarge">
-              {selectedCharger?.label} on {dayLabel === 'Today' || dayLabel === 'Tomorrow' ? dayLabel.toLowerCase() : dayLabel}
-            </Text>
-            {takenSlots.isLoading ? (
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                Loading bookings…
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={time.startAt ? `Start time, ${formatClock(time.startAt)}. Change time` : 'Choose a start time'}
+            onPress={() => setTimePickerOpen(true)}
+            style={({ pressed }) => [
+              styles.dateField,
+              {
+                backgroundColor: pressed ? theme.colors.surfaceVariant : theme.colors.surface,
+                borderColor: time.problem ? theme.colors.error : timeText ? theme.colors.primary : theme.colors.outline,
+              },
+            ]}
+          >
+            <View style={[styles.dateIcon, { backgroundColor: theme.colors.primaryContainer }]}>
+              <MaterialCommunityIcons name="clock-outline" size={22} color={theme.colors.onPrimaryContainer} />
+            </View>
+            <View style={styles.flex}>
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                Start time
               </Text>
-            ) : takenSlots.isError ? (
-              <View style={styles.timeProblem}>
-                <Text variant="bodySmall" style={[styles.flex, { color: theme.colors.error }]}>
-                  Couldn't load the booked times. Check your connection.
-                </Text>
-                <Button compact mode="contained-tonal" onPress={() => void takenSlots.refetch()}>
-                  Retry
-                </Button>
-              </View>
-            ) : (
-              <>
-                <View style={styles.rangeRow}>
-                  <View style={styles.rangeLabel}>
-                    <MaterialCommunityIcons name="close-circle" size={16} color={theme.colors.error} />
-                    <Text variant="labelMedium">Booked</Text>
-                  </View>
-                  <View style={styles.rangeChips}>
-                    {bookedRanges.length === 0 ? (
-                      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                        No bookings yet
-                      </Text>
-                    ) : (
-                      bookedRanges.map((range) => (
-                        <View
-                          key={range.start.toISOString()}
-                          accessibilityLabel={`Booked ${rangeText(range)}`}
-                          style={[styles.rangeChip, { backgroundColor: theme.colors.errorContainer }]}
-                        >
-                          <Text variant="labelMedium" style={{ color: theme.colors.onErrorContainer }}>
-                            {rangeText(range)}
-                          </Text>
-                        </View>
-                      ))
-                    )}
-                  </View>
-                </View>
-                <View style={styles.rangeRow}>
-                  <View style={styles.rangeLabel}>
-                    <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary} />
-                    <Text variant="labelMedium">Free</Text>
-                  </View>
-                  <View style={styles.rangeChips}>
-                    {openRanges.length === 0 ? (
-                      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                        Nothing free this day
-                      </Text>
-                    ) : (
-                      openRanges.map((range) => (
-                        <Pressable
-                          key={range.start.toISOString()}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Free ${rangeText(range)}, start at ${formatTime(range.start.toISOString())}`}
-                          onPress={() => {
-                            setTimeText(formatTime(range.start.toISOString()));
-                            setSubmitError('');
-                          }}
-                          style={[styles.rangeChip, { backgroundColor: theme.colors.primaryContainer }]}
-                        >
-                          <Text variant="labelMedium" style={{ color: theme.colors.onPrimaryContainer }}>
-                            {rangeText(range)}
-                          </Text>
-                        </Pressable>
-                      ))
-                    )}
-                  </View>
-                </View>
-                {openRanges.length > 0 ? (
-                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                    Tap a free time to start then, or type your own below.
-                  </Text>
-                ) : null}
-              </>
-            )}
-          </View>
-          <TextInput
-            mode="outlined"
-            label="Start time (24-hour)"
-            placeholder="e.g. 14:30"
-            value={timeText}
-            onChangeText={typeTime}
-            onBlur={tidyTime}
-            keyboardType="numeric"
-            maxLength={5}
-            left={<TextInput.Icon icon="clock-outline" />}
-            error={!!time.problem}
-            style={styles.input}
-          />
+              <Text variant="titleMedium" style={{ color: timeText ? theme.colors.onSurface : theme.colors.onSurfaceVariant }}>
+                {timeText && parseTypedTime(timeText) !== null
+                  ? formatClock(colomboInstant(day, parseTypedTime(timeText)!))
+                  : 'Choose a time'}
+              </Text>
+            </View>
+            <Text variant="labelLarge" style={{ color: theme.colors.primary }}>
+              {timeText ? 'Change' : 'Choose'}
+            </Text>
+          </Pressable>
           {time.problem ? (
             <View style={styles.timeProblem}>
               <HelperText type="error" style={[styles.noPad, styles.flex]}>
                 {time.problem}
               </HelperText>
               {time.suggestion ? (
-                <Button mode="contained-tonal" compact onPress={() => setTimeText(formatTime(time.suggestion!.toISOString()))}>
-                  Use {formatTime(time.suggestion.toISOString())}
+                <Button mode="contained-tonal" compact onPress={() => setTimeText(minutesToText(colomboMinutes(time.suggestion!)))}>
+                  Use {formatClock(time.suggestion)}
                 </Button>
               ) : null}
             </View>
           ) : (
             <HelperText type="info" style={styles.noPad}>
               {time.startAt && endAt
-                ? `Booked from ${formatTime(time.startAt.toISOString())} to ${formatTime(endAt.toISOString())}`
-                : `Start on the hour or half hour, like 09:00 or 14:30. Open ${station.data.openingHours}.`}
+                ? `\u2713 That time is free. ${portName} will be yours from ${formatClock(time.startAt)} to ${formatClock(endAt)}.`
+                : 'Tap to pick the hour, minutes and AM or PM.'}
             </HelperText>
           )}
+          <TimeWheelPicker
+            visible={timePickerOpen}
+            initialMinutes={
+              timeText && parseTypedTime(timeText) !== null
+                ? parseTypedTime(timeText)!
+                : isToday && firstFree
+                  ? colomboMinutes(firstFree.start)
+                  : 9 * 60
+            }
+            onCancel={() => setTimePickerOpen(false)}
+            onSave={(minutes) => {
+              setTimeText(minutesToText(minutes));
+              setSubmitError('');
+              setTimePickerOpen(false);
+            }}
+            describe={(minutes) => {
+              const check = checkTime(minutesToText(minutes));
+              if (check.startAt) {
+                const until = new Date(check.startAt.getTime() + slotMinutes * 60 * 1000);
+                return { ok: true, text: `Free \u2013 ${portName} is yours ${formatClock(check.startAt)} to ${formatClock(until)}` };
+              }
+              return { ok: false, text: check.problem ?? 'Choose a start time.' };
+            }}
+          />
 
           <View style={[styles.notice, { borderColor: theme.colors.outlineVariant }]}>
             <MaterialCommunityIcons name="information-outline" size={18} color={theme.colors.onSurfaceVariant} />
@@ -583,11 +592,8 @@ const styles = StyleSheet.create({
   dateDialogHeader: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, gap: 2 },
   dateDialogBody: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
   dateDialogNote: { textAlign: 'center', marginTop: spacing.xs },
-  dayCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.sm },
-  rangeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  rangeLabel: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 76, paddingTop: 4 },
-  rangeChips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  rangeChip: { borderRadius: 8, paddingHorizontal: spacing.sm, paddingVertical: 4 },
+  bookedBox: { flexDirection: 'row', gap: spacing.md, borderRadius: 14, padding: spacing.md, marginTop: spacing.sm },
+  bookedNote: { marginTop: spacing.sm },
   footer: { gap: spacing.sm },
   summary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: 12, padding: spacing.md },
   summaryCost: { alignItems: 'flex-end' },

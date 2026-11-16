@@ -21,9 +21,9 @@ export function nextSevenDays(): { value: string; label: string }[] {
   });
 }
 
-type OpeningHours = { openMin: number; closeMin: number };
+export type OpeningHours = { openMin: number; closeMin: number };
 
-function parseOpeningHours(openingHours: string): OpeningHours | null {
+export function parseOpeningHours(openingHours: string): OpeningHours | null {
   const match = openingHours.trim().match(/^(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})$/);
   if (!match) return null;
   const openMin = Number(match[1]) * 60 + Number(match[2]);
@@ -107,4 +107,22 @@ export function freeWindows(openingHours: string, dateValue: string, booked: Tim
 // Most a customer pays if the charger runs at full power for the whole slot.
 export function slotCost(powerKw: number, ratePerKwh: number, minutes: number): number {
   return Math.round(powerKw * (minutes / 60) * ratePerKwh);
+}
+
+// Minutes since Colombo midnight for an instant, e.g. 10:30 -> 630.
+export function colomboMinutes(date: Date): number {
+  return Math.floor(((date.getTime() + COLOMBO_OFFSET_MS) % (24 * 60 * 60 * 1000)) / 60000);
+}
+
+// "10:30 AM" style, in Colombo time. Midnight at the end of a day reads "12:00 AM".
+export function formatClock(date: Date): string {
+  const minutes = colomboMinutes(date);
+  const hour = Math.floor(minutes / 60);
+  const minute = String(minutes % 60).padStart(2, '0');
+  return `${hour % 12 === 0 ? 12 : hour % 12}:${minute} ${hour < 12 ? 'AM' : 'PM'}`;
+}
+
+// 630 -> "10:30"
+export function minutesToText(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
