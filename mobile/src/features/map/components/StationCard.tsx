@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { IconButton, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, StatusBadge, ConnectorChip } from '@/components';
 import { useAppTheme, spacing } from '@/lib/theme';
@@ -10,9 +10,11 @@ type StationCardProps = {
   station: StationSummary;
   onPress?: () => void;
   actions?: ReactNode;
+  // Shows a close (x) button, e.g. for the card that pops up on the map.
+  onClose?: () => void;
 };
 
-export function StationCard({ station, onPress, actions }: StationCardProps) {
+export function StationCard({ station, onPress, actions, onClose }: StationCardProps) {
   const theme = useAppTheme();
   const distanceText =
     station.distanceKm === undefined
@@ -37,6 +39,16 @@ export function StationCard({ station, onPress, actions }: StationCardProps) {
           }
           count={`${station.availableCount}/${station.chargerCount}`}
         />
+        {onClose ? (
+          <IconButton
+            icon="close"
+            size={20}
+            mode="contained-tonal"
+            accessibilityLabel="Close station details"
+            onPress={onClose}
+            style={styles.close}
+          />
+        ) : null}
       </View>
       <View style={styles.metaRow}>
         <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -66,6 +78,7 @@ export function StationCard({ station, onPress, actions }: StationCardProps) {
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm },
   name: { flex: 1 },
+  close: { margin: 0, marginTop: -4, marginRight: -6 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
   chipRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap' },
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
