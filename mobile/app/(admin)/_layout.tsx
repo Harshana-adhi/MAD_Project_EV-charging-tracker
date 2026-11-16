@@ -8,20 +8,23 @@ import { useAuth } from '@/features/auth';
 import { NotificationHeaderActions } from '@/features/notifications';
 import { AdminMenuButton } from '@/features/admin/components/AdminMenu';
 
-function BackToDashboard() {
+// Goes back to wherever the admin came from (the dashboard, the profile, the menu...). Only when
+// there is nothing to go back to, e.g. the page was opened directly, does it fall back to the dashboard.
+function BackButton() {
   return (
     <IconButton
       icon="arrow-left"
-      accessibilityLabel="Back to dashboard"
-      onPress={() => router.navigate('/(admin)/dashboard')}
+      accessibilityLabel="Back"
+      onPress={() => (router.canGoBack() ? router.back() : router.navigate('/(admin)/dashboard'))}
     />
   );
 }
 
-// Stations, payments and users are opened from the dashboard cards, so they are hidden from the tab bar.
+// Stations, payments and users are opened from the dashboard cards, the menu or the profile, so they are
+// hidden from the tab bar.
 const dashboardPageOptions = {
   tabBarItemStyle: { display: 'none' as const },
-  headerLeft: () => <BackToDashboard />,
+  headerLeft: () => <BackButton />,
 };
 
 export default function AdminTabsLayout() {
@@ -33,7 +36,8 @@ export default function AdminTabsLayout() {
 
   return (
     <Tabs
-      backBehavior="initialRoute"
+      // Back returns to the previous screen, not always to the dashboard.
+      backBehavior="history"
       screenOptions={{
         tabBarActiveTintColor: theme.colors.onSecondaryContainer,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
