@@ -22,11 +22,15 @@ const transactionTypes = {
   { label: string; filter: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }
 >;
 
-const filters = [undefined, ...(Object.keys(transactionTypes) as TxnType[])];
+// Each role only gets the filters that can actually appear in its wallet. Commission is
+// the platform's own entry, so neither customers nor owners ever see it.
+const customerFilters: TxnType[] = ['topup', 'charge', 'hold', 'release'];
+const ownerFilters: TxnType[] = ['earning', 'withdrawal', 'charge'];
 
 export default function TransactionHistoryScreen() {
   const theme = useAppTheme();
-  const { user, loading } = useAuth();
+  const { user, loading, role } = useAuth();
+  const filters = [undefined, ...(role === 'owner' ? ownerFilters : customerFilters)];
   const [type, setType] = useState<TxnType>();
   const { data, isPending, isError, error, isRefetching, refetch } = useTransactions(type);
 
