@@ -13,9 +13,11 @@ type ScreenProps = {
   scroll?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
+  // Stays pinned under the content, for a screen's main actions.
+  footer?: ReactNode;
 };
 
-export function Screen({ children, title, back, scroll, refreshing, onRefresh }: ScreenProps) {
+export function Screen({ children, title, back, scroll, refreshing, onRefresh, footer }: ScreenProps) {
   const theme = useAppTheme();
   const background = { backgroundColor: theme.colors.background };
   const navigatorHeaderShown = useContext(HeaderShownContext);
@@ -55,6 +57,16 @@ export function Screen({ children, title, back, scroll, refreshing, onRefresh }:
       ) : (
         <View style={[styles.content, background]}>{children}</View>
       )}
+      {footer ? (
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.outlineVariant },
+          ]}
+        >
+          {footer}
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -64,4 +76,9 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: spacing.lg },
   scroll: { flex: 1 },
   scrollContent: { padding: spacing.lg },
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
 });

@@ -1,5 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useMyBookings } from '@/features/bookings/hooks';
+import { formatTargetValue, loadBookingTarget, planCharge, type ChargeTarget } from '@/features/bookings/chargeTarget';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
@@ -32,10 +35,31 @@ export default function StartSessionScreen() {
     mode: 'onChange',
   });
   const spendingLimit = watch('spendingLimit');
+  const myBookings = useMyBookings();
+  const [bookedTarget, setBookedTarget] = useState<ChargeTarget | null>(null);
 
   useFocusEffect(useCallback(() => {
     charger.refetch();
   }, [charger.refetch]));
+
+  // If the customer booked this port, start with the charge they chose when booking.
+  const pointId = charger.data?.charger.id;
+  const booking = myBookings.data?.find((item) => item.status === 'booked' && item.chargerId === pointId);
+  useEffect(() => {
+    if (!booking || !charger.data) return;
+    let cancelled = false;
+    void loadBookingTarget(booking.id).then((target) => {
+      if (cancelled || !target || !charger.data) return;
+      const plan = planCharge(target, charger.data.charger.powerKw, charger.data.charger.ratePerKwh);
+      if (plan.problem) return;
+      setBookedTarget(target);
+      setCustom(![500, 1000, 2000].includes(plan.limit));
+      setValue('spendingLimit', plan.limit, { shouldValidate: true });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [booking?.id, charger.data, setValue]);
 
   async function submit(values: LimitForm) {
     try {
@@ -84,6 +108,14 @@ export default function StartSessionScreen() {
         </View>
         <View style={{ gap: spacing.md }}>
           <Text variant="titleMedium">Spending limit</Text>
+          {bookedTarget ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 12, backgroundColor: theme.colors.primaryContainer }}>
+              <MaterialCommunityIcons name="calendar-check" size={18} color={theme.colors.onPrimaryContainer} />
+              <Text variant="bodySmall" style={{ flex: 1, color: theme.colors.onPrimaryContainer }}>
+                Filled in from your booking: {formatTargetValue(bookedTarget)}. You can still change it.
+              </Text>
+            </View>
+          ) : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
             {[500, 1000, 2000].map((amount) => (
               <Chip key={amount} selected={!custom && spendingLimit === amount} onPress={() => {

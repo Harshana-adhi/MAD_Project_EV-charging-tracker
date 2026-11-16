@@ -16,6 +16,7 @@ import {
 import {
   ChargerForm,
   StationForm,
+  WalkinDialog,
   useCreateCharger,
   useDeleteCharger,
   useOwnerStations,
@@ -26,6 +27,7 @@ import {
 } from '@/features/owner';
 import type { OwnerPhotoUpload } from '@/features/owner/api';
 import { errorMessage } from '@/lib/errors';
+import { formatClock } from '@/lib/format';
 import { spacing, useAppTheme } from '@/lib/theme';
 import type { Charger, ChargerInput, StationInput } from '@/types/domain';
 
@@ -46,6 +48,7 @@ export default function EditStationScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingCharger, setEditingCharger] = useState<Charger | undefined>();
   const [chargerToDelete, setChargerToDelete] = useState<Charger | null>(null);
+  const [walkinCharger, setWalkinCharger] = useState<Charger | null>(null);
   const station = stations.data?.find((item) => item.id === id);
   const savingStation = updateStation.isPending || uploadPhoto.isPending;
   const savingCharger = createCharger.isPending || updateCharger.isPending;
@@ -104,12 +107,29 @@ export default function EditStationScreen() {
     if (charger.status === 'busy') return;
     setChargerError(null);
     try {
-      const status = charger.status === 'available' ? 'offline' : 'available';
+      const status = charger.status === 'offline' ? 'available' : 'offline';
       await setChargerStatus.mutateAsync({ id: charger.id, status });
       snackbar.show(status === 'available' ? 'Charger is available' : 'Charger is offline');
     } catch (error) {
       setChargerError(error);
     }
+  }
+
+  async function setAvailable(charger: Charger) {
+    setChargerError(null);
+    try {
+      await setChargerStatus.mutateAsync({ id: charger.id, status: 'available' });
+      snackbar.show('Charger released');
+    } catch (error) {
+      setChargerError(error);
+    }
+  }
+
+  async function submitWalkin(busyUntil?: string) {
+    if (!walkinCharger) return;
+    await setChargerStatus.mutateAsync({ id: walkinCharger.id, status: 'walkin', busyUntil });
+    setWalkinCharger(null);
+    snackbar.show('Charger marked as busy');
   }
 
   function openCreateCharger() {
@@ -162,7 +182,23 @@ export default function EditStationScreen() {
           />
         ) : null}
         {station.chargers.map((charger) => (
-          <Card key={charger.id} title={charger.label} subtitle={`${charger.connector} · ${charger.powerKw} kW · ${charger.ratePerKwh} credits/kWh`} right={<StatusBadge status={charger.status} />}>
+          <Card
+            key={charger.id}
+            title={charger.label}
+            subtitle={`${charger.connector} · ${charger.powerKw} kW · ${charger.ratePerKwh} credits/kWh`}
+            right={
+              <StatusBadge
+                status={charger.status}
+                label={
+                  charger.status === 'walkin'
+                    ? charger.busyUntil
+                      ? `Marked busy by owner until ${formatClock(charger.busyUntil)}`
+                      : 'Marked busy by owner'
+                    : undefined
+                }
+              />
+            }
+          >
             <View style={styles.actions}>
               <Button compact icon="pencil" onPress={() => openEditCharger(charger)}>Edit</Button>
               <Button
@@ -174,12 +210,26 @@ export default function EditStationScreen() {
               </Button>
               <Button
                 compact
-                icon={charger.status === 'available' ? 'power-plug-off' : 'power-plug'}
+                icon={charger.status === 'offline' ? 'power-plug' : 'power-plug-off'}
                 disabled={charger.status === 'busy' || setChargerStatus.isPending}
                 onPress={() => void toggleCharger(charger)}
               >
-                {charger.status === 'busy' ? 'Busy' : charger.status === 'available' ? 'Offline' : 'Available'}
+                {charger.status === 'busy' ? 'Busy' : charger.status === 'offline' ? 'Available' : 'Offline'}
               </Button>
+              {charger.status === 'walkin' ? (
+                <Button compact icon="lock-open-outline" disabled={setChargerStatus.isPending} onPress={() => void setAvailable(charger)}>
+                  Release
+                </Button>
+              ) : (
+                <Button
+                  compact
+                  icon="account-clock-outline"
+                  disabled={charger.status === 'busy' || charger.status === 'offline'}
+                  onPress={() => setWalkinCharger(charger)}
+                >
+                  Mark as busy
+                </Button>
+              )}
               <Button
                 compact
                 icon="delete-outline"
@@ -210,6 +260,9 @@ export default function EditStationScreen() {
           onConfirm={() => void confirmDeleteCharger()}
           onDismiss={() => setChargerToDelete(null)}
         />
+        {walkinCharger ? (
+          <WalkinDialog onSubmit={submitWalkin} onDismiss={() => setWalkinCharger(null)} />
+        ) : null}
       </View>
     </Screen>
   );

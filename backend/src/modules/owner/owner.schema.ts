@@ -66,8 +66,15 @@ export const updateChargerSchema = chargerInputSchema
   });
 
 export const chargerStatusSchema = z
-  .object({ status: z.enum(['available', 'offline']) })
-  .strict();
+  .object({
+    status: z.enum(['available', 'offline', 'walkin']),
+    busyUntil: z.string().datetime().optional(),
+  })
+  .strict()
+  .refine((input) => input.status === 'walkin' || input.busyUntil === undefined, {
+    message: 'busyUntil only applies to walkin status',
+    path: ['busyUntil'],
+  });
 
 export const disputeSchema = z.object({
   reason: z.string().trim().min(10).max(300),

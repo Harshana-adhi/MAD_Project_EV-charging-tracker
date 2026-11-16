@@ -2,6 +2,7 @@ import type { Charger, Station } from '@prisma/client';
 import { prisma, toNumber } from '../../core/db';
 import { AppError } from '../../core/errors';
 import { getReservedUntilByCharger } from '../bookings/bookings.service';
+import { runChargerSweep } from '../../core/charger.jobs';
 
 type StationWithRelations = Station & {
   chargers: Charger[];
@@ -88,6 +89,7 @@ export type StationFilters = {
 };
 
 export async function listStations(filters: StationFilters) {
+  await runChargerSweep();
   const stations = await prisma.station.findMany({
     where: {
       status: 'approved',
@@ -130,6 +132,7 @@ export async function listStations(filters: StationFilters) {
 }
 
 export async function getStationById(id: string, viewerId?: string) {
+  await runChargerSweep();
   const station = await prisma.station.findFirst({
     where: { id, status: 'approved' },
     include: { chargers: true, reviews: { select: { rating: true } } },
@@ -146,6 +149,7 @@ export async function getStationById(id: string, viewerId?: string) {
     powerKw: toNumber(c.powerKw),
     ratePerKwh: toNumber(c.ratePerKwh),
     status: c.status,
+    busyUntil: c.busyUntil,
     qrToken: c.qrToken,
     reservedUntil: reservedUntilByCharger[c.id] ?? null,
   }));

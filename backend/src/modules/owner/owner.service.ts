@@ -7,6 +7,7 @@ import { broadcast, emitToUser } from '../../core/socket';
 import { credit } from '../../core/credit.service';
 import { deleteCloudinaryAsset, uploadCloudinaryAsset } from '../../core/upload';
 import { getStationStatusCounts } from '../stations/stations.service';
+import { runChargerSweep } from '../../core/charger.jobs';
 import { createChargerQrToken } from './owner.crypto';
 import { connectorPowerProblem } from './owner.schema';
 import type {
@@ -41,6 +42,7 @@ function toCharger(charger: Charger) {
     powerKw: toNumber(charger.powerKw) as number,
     ratePerKwh: toNumber(charger.ratePerKwh) as number,
     status: charger.status,
+    busyUntil: charger.busyUntil,
     qrToken: charger.qrToken,
   };
 }
@@ -104,6 +106,7 @@ async function getOwnedStation(stationId: string, user: AuthUser): Promise<Stati
 }
 
 export async function listMyStations(ownerId: string) {
+  await runChargerSweep();
   const stations = await prisma.station.findMany({
     where: { ownerId },
     include: {
@@ -117,6 +120,7 @@ export async function listMyStations(ownerId: string) {
 }
 
 export async function getMyStationDetail(stationId: string, owner: AuthUser) {
+  await runChargerSweep();
   const station = await prisma.station.findUnique({
     where: { id: stationId },
     include: { chargers: true, reviews: { select: { rating: true } } },
@@ -338,18 +342,33 @@ export async function deleteCharger(chargerId: string, owner: AuthUser) {
   });
 }
 
+const MAX_WALKIN_MS = 12 * 60 * 60 * 1000;
+
 export async function setChargerStatus(
   chargerId: string,
   owner: AuthUser,
-  status: 'available' | 'offline',
+  status: 'available' | 'offline' | 'walkin',
+  busyUntil?: string,
 ) {
+  let busyUntilDate: Date | null = null;
+  if (status === 'walkin' && busyUntil) {
+    busyUntilDate = new Date(busyUntil);
+    const now = Date.now();
+    if (busyUntilDate.getTime() <= now || busyUntilDate.getTime() - now > MAX_WALKIN_MS) {
+      throw new AppError('VALIDATION_ERROR', 400, 'busyUntil must be in the future, at most 12 hours away');
+    }
+  }
+
   const charger = await withTx(async (tx) => {
     const current = await lockOwnedCharger(tx, chargerId, owner);
     if (current.status === 'busy') {
       throw new AppError('CHARGER_BUSY', 409, 'This charger is already in use');
     }
 
-    return tx.charger.update({ where: { id: chargerId }, data: { status } });
+    return tx.charger.update({
+      where: { id: chargerId },
+      data: { status, busyUntil: status === 'walkin' ? busyUntilDate : null },
+    });
   });
 
   const result = toCharger(charger);
@@ -358,6 +377,7 @@ export async function setChargerStatus(
     chargerId: result.id,
     stationId: result.stationId,
     status: result.status,
+    busyUntil: result.busyUntil,
     ...counts,
   });
   return result;

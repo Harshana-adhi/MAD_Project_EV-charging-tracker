@@ -5,6 +5,7 @@ import { credit } from '../../core/credit.service';
 import { notify } from '../../core/notify.service';
 import { broadcast, emitToUser } from '../../core/socket';
 import { runBookingSweep } from '../../core/booking.jobs';
+import { runChargerSweep } from '../../core/charger.jobs';
 import { getStationStatusCounts } from '../stations/stations.service';
 import { broadcastBookingChanged } from '../bookings/slots';
 import { findGuardingBooking } from '../bookings/bookings.service';
@@ -152,6 +153,7 @@ export async function startSession(customerId: string, input: { qrToken: string;
     select: { id: true },
   });
   if (chargerForSweep) await runBookingSweep();
+  await runChargerSweep();
 
   const { session, ownerId, usedBooking, powerKw, ratePerKwh } = await withTx(async (tx) => {
     // These locks prevent concurrent starts by one customer or on one charger.
@@ -165,6 +167,7 @@ export async function startSession(customerId: string, input: { qrToken: string;
     if (charger.station.status !== 'approved') throw new AppError('STATION_NOT_APPROVED', 409);
     if (charger.status === 'offline') throw new AppError('CHARGER_OFFLINE', 409);
     if (charger.status === 'busy') throw new AppError('CHARGER_BUSY', 409);
+    if (charger.status === 'walkin') throw new AppError('CHARGER_IN_USE', 409);
     const active = await tx.session.findFirst({
       where: { customerId, status: 'active' },
       select: { id: true },

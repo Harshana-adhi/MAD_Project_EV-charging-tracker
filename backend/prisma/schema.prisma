@@ -32,6 +32,7 @@ enum ChargerStatus {
   available
   busy
   offline
+  walkin
 }
 
 enum SessionStatus {
@@ -142,6 +143,7 @@ model Charger {
   powerKw    Decimal       @map("power_kw") @db.Decimal(6, 1)
   ratePerKwh Decimal       @map("rate_per_kwh") @db.Decimal(10, 2)
   status     ChargerStatus @default(available)
+  busyUntil  DateTime?     @map("busy_until")
   qrToken    String        @unique @map("qr_token")
   createdAt  DateTime      @default(now()) @map("created_at")
   sessions   Session[]

@@ -235,7 +235,8 @@ export async function deleteCharger(id: string): Promise<{ id: string }> {
 
 export async function setChargerStatus(
   id: string,
-  status: 'available' | 'offline',
+  status: 'available' | 'offline' | 'walkin',
+  busyUntil?: string,
 ): Promise<Charger> {
   const data = getOwnerMockData();
   const currentStation = data.stations.find((item) => item.chargers.some((charger) => charger.id === id));
@@ -250,7 +251,7 @@ export async function setChargerStatus(
       station,
       station.chargers.map((charger) => {
         if (charger.id !== id) return charger;
-        updated = { ...charger, status };
+        updated = { ...charger, status, busyUntil: status === 'walkin' ? (busyUntil ?? null) : null };
         return updated;
       }),
     ),

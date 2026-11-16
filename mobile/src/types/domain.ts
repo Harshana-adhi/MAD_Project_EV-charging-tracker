@@ -1,7 +1,7 @@
 export type Role = 'customer' | 'owner' | 'admin';
 export type ConnectorType = 'TYPE1' | 'TYPE2' | 'CCS2' | 'CHADEMO' | 'GBT';
 export type StationStatus = 'pending' | 'approved' | 'rejected';
-export type ChargerStatus = 'available' | 'busy' | 'offline';
+export type ChargerStatus = 'available' | 'busy' | 'offline' | 'walkin';
 export type SessionStatus = 'active' | 'completed' | 'cancelled' | 'disputed';
 export type TxnType =
   | 'topup'
@@ -64,6 +64,7 @@ export interface Charger {
   powerKw: number;
   ratePerKwh: number;
   status: ChargerStatus;
+  busyUntil?: string | null;
   qrToken: string;
   reservedUntil?: string | null;
 }
@@ -236,7 +237,8 @@ export interface OwnerBookingWithNames extends Booking {
 export type BookingInput = {
   chargerId: string;
   startAt: string;
-  durationMinutes: 30 | 60;
+  // 30 to 240, in 30 minute steps.
+  durationMinutes: number;
 };
 
 // A charger's taken times for one day – times only, never who booked them.
