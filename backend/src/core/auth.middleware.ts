@@ -21,6 +21,7 @@ declare global {
 async function loadUser(userId: string): Promise<AuthUser> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new AppError('UNAUTHENTICATED', 401);
+  if (user.deletedAt) throw new AppError('ACCOUNT_DELETED', 403);
   if (user.isBlocked) throw new AppError('USER_BLOCKED', 403);
   return { id: user.id, role: user.role, fullName: user.fullName };
 }

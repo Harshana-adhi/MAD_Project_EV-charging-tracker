@@ -36,9 +36,13 @@ export function UserDetailsDialog({
       <Dialog visible onDismiss={onDismiss}>
         <Dialog.Title>{user.fullName}</Dialog.Title>
         <Dialog.Content style={styles.content}>
-          {user.isBlocked ? (
+          {user.isDeleted ? (
             <Text variant="labelLarge" style={{ color: theme.colors.error }}>
-              This account is blocked
+              This account was deleted by its owner
+            </Text>
+          ) : user.isBlocked ? (
+            <Text variant="labelLarge" style={{ color: theme.colors.error }}>
+              This account is terminated
             </Text>
           ) : null}
           {details.map((detail) => (
@@ -55,13 +59,13 @@ export function UserDetailsDialog({
           ))}
         </Dialog.Content>
         <Dialog.Actions>
-          <Button onPress={onResetPassword}>Reset password</Button>
-          {canBlock ? (
+          {!user.isDeleted ? <Button onPress={onResetPassword}>Reset password</Button> : null}
+          {canBlock && !user.isDeleted ? (
             <Button
               onPress={onBlock}
               textColor={user.isBlocked ? theme.colors.primary : theme.colors.error}
             >
-              {user.isBlocked ? 'Unblock' : 'Block'}
+              {user.isBlocked ? 'Reactivate account' : 'Terminate account'}
             </Button>
           ) : null}
         </Dialog.Actions>

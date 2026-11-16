@@ -2,14 +2,27 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Avatar, Chip, Divider, List, Text } from 'react-native-paper';
-import { ConfirmDialog, EmptyState, ErrorView, LoadingView, Logo, Screen } from '@/components';
+import { ConfirmDialog, EmptyState, ErrorView, LoadingView, Logo, Screen, useSnackbar } from '@/components';
 import { useAuth } from '@/features/auth';
+import { errorMessage } from '@/lib/errors';
 import { useAppTheme, spacing } from '@/lib/theme';
 import { useThemePreference, type ThemePreference } from '@/lib/themePreference';
 import type { Role } from '@/types/domain';
-import { useProfile } from '../hooks';
+import { useDeleteAccount, useProfile } from '../hooks';
 import { AppearanceDialog } from './AppearanceDialog';
+import { DeleteAccountDialog } from './DeleteAccountDialog';
 import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
+
+const DELETE_ACCOUNT_MESSAGES: Record<string, string> = {
+  ACTIVE_SESSION_EXISTS: 'End your active charging session before deleting your account.',
+  BOOKING_EXISTS: 'Cancel your upcoming booking before deleting your account.',
+  INVALID_CREDENTIALS: 'Incorrect password.',
+};
+
+function deleteAccountErrorMessage(err: unknown): string {
+  const code = err instanceof Error ? err.message : String(err);
+  return DELETE_ACCOUNT_MESSAGES[code] ?? errorMessage(err);
+}
 
 const ROLE_LABEL: Record<Role, string> = {
   customer: 'Customer',
@@ -44,8 +57,12 @@ export function ProfileScreen() {
   const { preference } = useThemePreference();
   const { data: profile, isLoading, isError, error, refetch } = useProfile();
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
+  const snackbar = useSnackbar();
+  const deleteAccount = useDeleteAccount();
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | undefined>();
 
   if (!user) {
     return (
@@ -68,6 +85,19 @@ export function ProfileScreen() {
     setLogoutOpen(false);
     await signOut();
     router.replace('/');
+  }
+
+  async function confirmDeleteAccount(password: string) {
+    setDeleteError(undefined);
+    try {
+      await deleteAccount.mutateAsync(password);
+      setDeleteOpen(false);
+      await signOut();
+      router.replace('/');
+      snackbar.show('Your account has been deleted');
+    } catch (err) {
+      setDeleteError(deleteAccountErrorMessage(err));
+    }
   }
 
   return (
@@ -160,6 +190,17 @@ export function ProfileScreen() {
         left={(props) => <List.Icon {...props} icon="logout" color={theme.colors.error} />}
         onPress={() => setLogoutOpen(true)}
       />
+      {role === 'customer' || role === 'owner' ? (
+        <List.Item
+          title="Delete account"
+          titleStyle={{ color: theme.colors.error }}
+          left={(props) => <List.Icon {...props} icon="account-remove" color={theme.colors.error} />}
+          onPress={() => {
+            setDeleteError(undefined);
+            setDeleteOpen(true);
+          }}
+        />
+      ) : null}
 
       <View style={styles.about}>
         <Logo size={22} withWordmark />
@@ -178,6 +219,14 @@ export function ProfileScreen() {
         onConfirm={logOut}
         onDismiss={() => setLogoutOpen(false)}
       />
+      {deleteOpen ? (
+        <DeleteAccountDialog
+          loading={deleteAccount.isPending}
+          error={deleteError}
+          onConfirm={confirmDeleteAccount}
+          onDismiss={() => setDeleteOpen(false)}
+        />
+      ) : null}
     </Screen>
   );
 }

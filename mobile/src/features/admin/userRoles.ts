@@ -16,10 +16,10 @@ export function initials(fullName: string): string {
     .join('');
 }
 
-// Customers are the majority, so they stay neutral and owners, admins and blocked users stand out.
-// Blocked users are shown in the error colours whatever their role is.
+// Customers are the majority, so they stay neutral and owners, admins and terminated/deleted
+// users stand out. Terminated and deleted users are shown in the error colours whatever their role is.
 export function userColors(user: User, theme: AppTheme): { bg: string; text: string } {
-  if (user.isBlocked) {
+  if (user.isBlocked || user.isDeleted) {
     return { bg: theme.colors.errorContainer, text: theme.colors.onErrorContainer };
   }
   if (user.role === 'owner') {

@@ -62,6 +62,12 @@ export function useDeleteVehicle() {
   });
 }
 
+export function useDeleteAccount() {
+  return useMutation({
+    mutationFn: (password: string) => api.deleteAccount(password),
+  });
+}
+
 export function useChangePassword() {
   return useMutation({
     mutationFn: (input: ChangePasswordInput) => api.changePassword(input),

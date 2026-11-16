@@ -48,6 +48,19 @@ export async function deleteVehicle(id: string): Promise<{ ok: true }> {
   return { ok: true };
 }
 
+export async function deleteAccount(password: string): Promise<{ ok: true }> {
+  if (!password) throw new Error('INVALID_CREDENTIALS');
+  profile = {
+    ...profile,
+    email: `deleted-${profile.id}@deleted.greencharge.space`,
+    fullName: 'Deleted user',
+    phone: null,
+    isDeleted: true,
+  };
+  setCurrentMockUser(profile);
+  return { ok: true };
+}
+
 export async function changePassword(input: ChangePasswordInput): Promise<{ ok: true }> {
   if (input.currentPassword === input.newPassword) throw new Error('VALIDATION_ERROR');
   return { ok: true };
