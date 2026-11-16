@@ -11,12 +11,17 @@ import {
 } from '@/features/admin/hooks';
 import { AttentionList } from '@/features/admin/components/AttentionList';
 import { IncomeSummaryCard } from '@/features/admin/components/IncomeSummaryCard';
+import { PlatformSnapshot } from '@/features/admin/components/PlatformSnapshot';
+import { useStations } from '@/features/map/hooks';
 import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 import { useIncome } from '@/features/reports/hooks';
 import { useAppTheme, spacing } from '@/lib/theme';
 import type { AdminCounts } from '@/types/domain';
 
 type CountTile = { key: keyof AdminCounts; label: string; route: Href };
+
+// A stable object, so the map's station query is shared instead of refetched on every render.
+const ALL_STATIONS = {};
 
 const COUNT_TILES: CountTile[] = [
   {
@@ -46,7 +51,8 @@ export default function AdminDashboardScreen() {
   const stations = useAdminStations('pending');
   const topups = useAdminTopups('pending');
   const withdrawals = useAdminWithdrawals('pending');
-  const queries = [counts, days, months, stations, topups, withdrawals];
+  const network = useStations(ALL_STATIONS);
+  const queries = [counts, days, months, stations, topups, withdrawals, network];
 
   const { refreshing, onRefresh } = usePullToRefresh(() =>
     Promise.all(queries.map((query) => query.refetch())),
@@ -92,6 +98,8 @@ export default function AdminDashboardScreen() {
             </TouchableRipple>
           ))}
         </View>
+
+        <PlatformSnapshot stations={network.data ?? []} month={months.data?.[0]} />
       </View>
     </Screen>
   );
