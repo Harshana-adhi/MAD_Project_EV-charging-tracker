@@ -57,11 +57,16 @@ export default function EditStationScreen() {
   ) {
     setSubmitError(null);
     try {
+      const uploadPendingPhotos = async () => {
+        for (const photo of photos) {
+          await uploadPhoto.mutateAsync({ id: id!, photo });
+          onPhotoUploaded(photo.uri);
+        }
+      };
+
+      if (station?.status === 'rejected') await uploadPendingPhotos();
       await updateStation.mutateAsync({ id: id!, input });
-      for (const photo of photos) {
-        await uploadPhoto.mutateAsync({ id: id!, photo });
-        onPhotoUploaded(photo.uri);
-      }
+      if (station?.status !== 'rejected') await uploadPendingPhotos();
       snackbar.show('Station saved');
       router.back();
     } catch (error) {
@@ -139,7 +144,9 @@ export default function EditStationScreen() {
     <Screen title="Edit station" back scroll>
       <View style={styles.content}>
         <StationForm station={station} saving={savingStation} submitError={submitError} onSubmit={saveStation} />
-        <Text variant="bodySmall">Add at least one charger before requesting station approval.</Text>
+        <Text variant="bodySmall">
+          Stations are submitted for review when created. Rejected stations return to review after you save an update; chargers can be added while a station is pending.
+        </Text>
         <Divider />
         <View style={styles.sectionHeading}>
           <Text variant="titleLarge">Chargers</Text>
