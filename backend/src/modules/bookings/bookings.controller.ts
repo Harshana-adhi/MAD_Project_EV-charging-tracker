@@ -19,6 +19,10 @@ export async function cancel(req: Request, res: Response) {
   res.json({ data: await service.cancelBooking(req.params.id, req.user!.id) });
 }
 
+export async function historyForOwner(req: Request, res: Response) {
+  res.json({ data: await service.listOwnerBookingHistory(req.user!.id) });
+}
+
 export async function listForOwner(req: Request, res: Response) {
   res.json({ data: await service.listOwnerBookings(req.user!.id) });
 }

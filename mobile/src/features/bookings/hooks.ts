@@ -54,3 +54,7 @@ export function useCancelBooking() {
 export function useOwnerBookings() {
   return useQuery({ queryKey: ['owner-bookings'], queryFn: api.listOwnerBookings });
 }
+
+export function useOwnerBookingHistory() {
+  return useQuery({ queryKey: ['owner-booking-history'], queryFn: api.listOwnerBookingHistory });
+}

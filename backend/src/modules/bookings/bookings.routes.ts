@@ -29,3 +29,4 @@ router.post(
 );
 
 ownerBookingsRouter.get('/bookings', requireAuth, requireRole('owner'), asyncHandler(controller.listForOwner));
+ownerBookingsRouter.get('/bookings/history', requireAuth, requireRole('owner'), asyncHandler(controller.historyForOwner));

@@ -255,6 +255,13 @@ export interface OwnerBookingWithNames extends Booking {
   customerName: string;
 }
 
+// A past booking on an owner's charger. kwh and earned are set when the customer charged.
+export interface OwnerBookingHistoryItem extends OwnerBookingWithNames {
+  connector: ConnectorType;
+  kwh: number | null;
+  earned: number | null;
+}
+
 export type BookingInput = {
   chargerId: string;
   startAt: string;

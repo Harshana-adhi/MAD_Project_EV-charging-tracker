@@ -3,6 +3,7 @@ export * from './api';
 export * from './hooks';
 export * from './components/ChargerForm';
 export * from './components/EarningsChart';
+export * from './components/OwnerMenu';
 export * from './components/OwnerStationCard';
 export * from './components/PinPicker';
 export * from './components/StationForm';

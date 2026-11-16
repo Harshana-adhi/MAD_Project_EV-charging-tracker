@@ -1,9 +1,11 @@
 import { Redirect, Tabs } from 'expo-router';
+import { View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAppTheme, spacing } from '@/lib/theme';
+import { useAppTheme } from '@/lib/theme';
 import { LoadingView, LogoMark } from '@/components';
 import { useAuth } from '@/features/auth';
 import { NotificationHeaderActions } from '@/features/notifications';
+import { OwnerMenuButton } from '@/features/owner';
 
 export default function OwnerTabsLayout() {
   const theme = useAppTheme();
@@ -21,7 +23,12 @@ export default function OwnerTabsLayout() {
         tabBarStyle: { backgroundColor: theme.colors.surface },
         tabBarLabelStyle: { fontSize: 10 },
         tabBarItemStyle: { minWidth: 0, paddingHorizontal: 0 },
-        headerLeft: () => <LogoMark size={26} style={{ marginLeft: spacing.md }} />,
+        headerLeft: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <OwnerMenuButton />
+            <LogoMark size={26} />
+          </View>
+        ),
         headerRight: () => <NotificationHeaderActions />,
       }}
     >
