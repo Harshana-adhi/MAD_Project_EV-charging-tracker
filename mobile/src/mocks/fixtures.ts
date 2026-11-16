@@ -61,6 +61,7 @@ export const mockStationSummary: StationSummary = {
   reviewCount: 12,
   chargerCount: 1,
   availableCount: 1,
+  onlineCount: 1,
   connectors: ['TYPE2'],
   minRate: 85,
   maxPowerKw: 22,

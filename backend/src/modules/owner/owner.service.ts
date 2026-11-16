@@ -6,6 +6,7 @@ import { notify, notifyAdmins } from '../../core/notify.service';
 import { broadcast, emitToUser } from '../../core/socket';
 import { credit } from '../../core/credit.service';
 import { deleteCloudinaryAsset, uploadCloudinaryAsset } from '../../core/upload';
+import { getStationStatusCounts } from '../stations/stations.service';
 import { createChargerQrToken } from './owner.crypto';
 import type {
   ChargerInput,
@@ -335,10 +336,12 @@ export async function setChargerStatus(
   });
 
   const result = toCharger(charger);
+  const counts = await getStationStatusCounts(result.stationId);
   broadcast('charger:status', {
     chargerId: result.id,
     stationId: result.stationId,
     status: result.status,
+    ...counts,
   });
   return result;
 }

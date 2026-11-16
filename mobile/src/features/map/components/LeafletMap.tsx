@@ -87,8 +87,12 @@ const HTML = `<!DOCTYPE html>
 
       clearMarkers();
       stations.forEach((station) => {
+        // Green: at least one charger free. Yellow: none free, but some are online (busy).
+        // Gray: the owner has every charger offline – nothing to wait for here.
+        const onlineCount = station.onlineCount ?? station.chargerCount;
         const available = station.availableCount > 0;
-        const fill = available ? '#16A34A' : '#F59E0B';
+        const allOffline = onlineCount === 0 && station.chargerCount > 0;
+        const fill = available ? '#16A34A' : allOffline ? '#6B7280' : '#F59E0B';
         const textColor = available ? '#FFFFFF' : '#1F2937';
         const label = station.availableCount + '/' + station.chargerCount;
         const icon = L.divIcon({

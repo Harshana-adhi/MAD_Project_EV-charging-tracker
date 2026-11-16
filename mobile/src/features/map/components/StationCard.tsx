@@ -28,7 +28,13 @@ export function StationCard({ station, onPress, actions }: StationCardProps) {
           {station.name}
         </Text>
         <StatusBadge
-          status={station.availableCount > 0 ? 'available' : 'busy'}
+          status={
+            station.availableCount > 0
+              ? 'available'
+              : station.onlineCount === 0
+                ? 'offline'
+                : 'busy'
+          }
           count={`${station.availableCount}/${station.chargerCount}`}
         />
       </View>

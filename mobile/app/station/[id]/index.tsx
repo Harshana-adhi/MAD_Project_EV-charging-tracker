@@ -68,7 +68,13 @@ export default function StationDetailsScreen() {
           {station.name}
         </Text>
         <StatusBadge
-          status={station.availableCount > 0 ? 'available' : 'busy'}
+          status={
+            station.availableCount > 0
+              ? 'available'
+              : station.onlineCount === 0
+                ? 'offline'
+                : 'busy'
+          }
           count={`${station.availableCount}/${station.chargerCount}`}
         />
         {user?.role === 'customer' && favourites.data ? (
