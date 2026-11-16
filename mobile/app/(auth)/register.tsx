@@ -47,6 +47,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function RegisterScreen() {
+  const theme = useAppTheme();
   const { signUp } = useAuth();
   const [submitError, setSubmitError] = useState<unknown>(null);
   const {
@@ -121,9 +122,12 @@ export default function RegisterScreen() {
         />
         {submitError ? <ErrorView error={submitError} /> : null}
         <AppButton label="Create account" onPress={handleSubmit(onSubmit)} loading={isSubmitting} />
-        <Link href="/(auth)/login" style={{ marginTop: spacing.sm, textAlign: 'center' }}>
-          Already have an account? Log in
-        </Link>
+        <Text variant="bodyMedium" style={{ marginTop: spacing.sm, textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
+          Already have an account?{' '}
+          <Link href="/(auth)/login" style={{ color: theme.colors.primary, fontWeight: '700' }}>
+            Log in
+          </Link>
+        </Text>
       </View>
     </Screen>
   );
