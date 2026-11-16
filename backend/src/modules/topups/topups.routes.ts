@@ -13,7 +13,7 @@ const slipTopup = z.object({
   amount: z.string().trim().min(1).pipe(z.coerce.number<string>().int().min(100).max(50000)),
 });
 
-router.use(requireAuth, requireRole('customer'));
+router.use(requireAuth, requireRole('customer', 'owner'));
 
 router.get(
   '/',

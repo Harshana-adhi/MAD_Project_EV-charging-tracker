@@ -11,7 +11,7 @@ router.get('/', requireAuth, asyncHandler(controller.getMyWallet));
 router.post(
   '/topup',
   requireAuth,
-  requireRole('customer'),
+  requireRole('customer', 'owner'),
   validate({ body: topUpSchema }),
   asyncHandler(controller.topUpWithCard),
 );

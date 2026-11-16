@@ -10,6 +10,7 @@ import { Chip, Dialog, Portal, Text, Button } from 'react-native-paper';
 import { z } from 'zod';
 import { AppButton, AppTextInput, Card, ConnectorChip, ErrorView, LoadingView, Screen, StatusBadge } from '@/components';
 import { useChargerByQr, useStartSession } from '@/features/session/hooks';
+import { useAuth } from '@/features/auth';
 import { useVehicles } from '@/features/profile/hooks';
 import { vehicleForConnector } from '@/features/profile/vehicleFit';
 import { formatCredits } from '@/lib/format';
@@ -26,7 +27,8 @@ export default function StartSessionScreen() {
   const theme = useAppTheme();
   const charger = useChargerByQr(token ?? '');
   const start = useStartSession();
-  const vehicles = useVehicles();
+  const { user } = useAuth();
+  const vehicles = useVehicles(user?.role === 'customer');
   const [custom, setCustom] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const { control, setValue, watch, handleSubmit, formState: { errors } } = useForm<LimitForm>({

@@ -42,13 +42,13 @@ export async function deleteOwnAccount(requester: AuthUser, password: string) {
     throw new AppError('INVALID_CREDENTIALS', 401);
   }
 
-  if (requester.role === 'customer') {
-    const activeSession = await prisma.session.findFirst({
-      where: { customerId: requester.id, status: 'active' },
-      select: { id: true },
-    });
-    if (activeSession) throw new AppError('ACTIVE_SESSION_EXISTS', 409);
+  const activeSession = await prisma.session.findFirst({
+    where: { customerId: requester.id, status: 'active' },
+    select: { id: true },
+  });
+  if (activeSession) throw new AppError('ACTIVE_SESSION_EXISTS', 409);
 
+  if (requester.role === 'customer') {
     const upcomingBooking = await prisma.booking.findFirst({
       where: { customerId: requester.id, status: 'booked' },
       select: { id: true },

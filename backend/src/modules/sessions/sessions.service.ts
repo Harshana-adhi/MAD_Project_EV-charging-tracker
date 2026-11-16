@@ -130,6 +130,7 @@ export async function getChargerByQr(qrToken: string, customerId: string) {
   const charger = await prisma.charger.findUnique({ where: { qrToken }, include: { station: true } });
   if (!charger) throw new AppError('CHARGER_NOT_FOUND', 404);
   if (charger.station.status !== 'approved') throw new AppError('STATION_NOT_APPROVED', 409);
+  if (charger.station.ownerId === customerId) throw new AppError('OWN_STATION', 409);
   const wallet = await credit.getWallet(customerId);
   return {
     charger: {
@@ -165,6 +166,7 @@ export async function startSession(customerId: string, input: { qrToken: string;
     });
     if (!charger) throw new AppError('CHARGER_NOT_FOUND', 404);
     if (charger.station.status !== 'approved') throw new AppError('STATION_NOT_APPROVED', 409);
+    if (charger.station.ownerId === customerId) throw new AppError('OWN_STATION', 409);
     if (charger.status === 'offline') throw new AppError('CHARGER_OFFLINE', 409);
     if (charger.status === 'busy') throw new AppError('CHARGER_BUSY', 409);
     if (charger.status === 'walkin') throw new AppError('CHARGER_IN_USE', 409);
