@@ -50,23 +50,34 @@ export function generateSlotStarts(openingHours: string, dateValue: string, dura
   return starts;
 }
 
-// Short labels for the day picker, e.g. { top: 'Today', bottom: '16' } or { top: 'Wed', bottom: '18' }.
-export function dayPickerLabel(dateValue: string, index: number): { top: string; bottom: string } {
-  const date = new Date(`${dateValue}T00:00:00+05:30`);
-  const weekday = date.toLocaleDateString('en-LK', { weekday: 'short', timeZone: 'Asia/Colombo' });
-  return { top: index === 0 ? 'Today' : index === 1 ? 'Tmrw' : weekday, bottom: dateValue.slice(8, 10).replace(/^0/, '') };
+// A date string shifted by whole days, e.g. addDays('2026-11-30', 1) -> '2026-12-01'.
+export function addDays(dateValue: string, days: number): string {
+  return new Date(new Date(`${dateValue}T00:00:00.000Z`).getTime() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-export type DayPart = 'Early morning' | 'Morning' | 'Afternoon' | 'Evening' | 'Night';
+// e.g. 'Tue, 17 Nov'
+export function formatDay(dateValue: string): string {
+  return new Date(`${dateValue}T00:00:00+05:30`).toLocaleDateString('en-LK', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Colombo',
+  });
+}
 
-// Which part of the Colombo day a slot starts in, for grouping the time grid.
-export function dayPart(startAt: Date): DayPart {
-  const hour = new Date(startAt.getTime() + COLOMBO_OFFSET_MS).getUTCHours();
-  if (hour < 5) return 'Early morning';
-  if (hour < 12) return 'Morning';
-  if (hour < 17) return 'Afternoon';
-  if (hour < 21) return 'Evening';
-  return 'Night';
+// Reads a typed time like "14:30", "9:00" or "0930" as minutes of the day, or null.
+export function parseTypedTime(text: string): number | null {
+  const match = text.trim().match(/^(\d{1,2}):?(\d{2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+// The instant a Colombo wall-clock time on a Colombo date happens.
+export function colomboInstant(dateValue: string, minutesOfDay: number): Date {
+  return new Date(new Date(`${dateValue}T00:00:00.000Z`).getTime() - COLOMBO_OFFSET_MS + minutesOfDay * 60 * 1000);
 }
 
 // Most a customer pays if the charger runs at full power for the whole slot.
