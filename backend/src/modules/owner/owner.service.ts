@@ -8,6 +8,7 @@ import { credit } from '../../core/credit.service';
 import { deleteCloudinaryAsset, uploadCloudinaryAsset } from '../../core/upload';
 import { broadcastStationChanged, getStationStatusCounts, takeStationOffMap } from '../stations/stations.service';
 import { runChargerSweep } from '../../core/charger.jobs';
+import { cancelBookingsOnCharger } from '../bookings/bookings.service';
 import { createChargerQrToken } from './owner.crypto';
 import { connectorPowerProblem } from './owner.schema';
 import type {
@@ -181,16 +182,62 @@ export async function updateStation(
     const station = await tx.station.findUnique({ where: { id: stationId } });
     if (!station || station.status === 'deleted') throw new AppError('NOT_FOUND', 404);
     assertOwner(station.ownerId, owner);
-    return tx.station.update({
+
+    // Admins approved this name and place. Changing either on a live station needs a new look.
+    const needsReview =
+      station.status === 'approved' &&
+      ((input.name !== undefined && input.name !== station.name) ||
+        (input.address !== undefined && input.address !== station.address) ||
+        (input.lat !== undefined && input.lat !== station.lat) ||
+        (input.lng !== undefined && input.lng !== station.lng));
+    if (needsReview) {
+      const activeSession = await tx.session.findFirst({
+        where: { stationId, status: 'active' },
+        select: { id: true },
+      });
+      if (activeSession) throw new AppError('STATION_HAS_ACTIVE_SESSION', 409);
+    }
+
+    const saved = await tx.station.update({
       where: { id: stationId },
       data: {
         ...input,
         ...(station.status === 'rejected' ? { status: 'pending', rejectReason: null } : {}),
       },
     });
+    return { saved, needsReview };
   });
-  broadcastStationChanged(stationId, updated.status);
-  return updated;
+
+  if (!updated.needsReview) {
+    broadcastStationChanged(stationId, updated.saved.status);
+    return updated.saved;
+  }
+
+  // Off the map until an admin approves it again; upcoming bookings there are cancelled.
+  await takeStationOffMap(stationId, 'pending');
+  const notices = await Promise.allSettled([
+    notify({
+      userId: owner.id,
+      title: 'Station sent for review again',
+      body: `You changed the name or location of ${updated.saved.name}, so it is hidden from the map until an admin approves it again.`,
+      type: 'station_submitted',
+      refId: stationId,
+      email: true,
+    }),
+    notifyAdmins({
+      title: 'Station changed – review again',
+      body: `${owner.fullName} changed the name or location of "${updated.saved.name}"`,
+      type: 'station_pending',
+      refId: stationId,
+      email: true,
+    }),
+  ]);
+  notices.forEach((notice) => {
+    if (notice.status === 'rejected') {
+      console.error('Could not send station re-review notification', { stationId, error: notice.reason });
+    }
+  });
+  return { ...updated.saved, status: 'pending' as const };
 }
 
 export async function deleteStation(stationId: string, owner: AuthUser) {
@@ -391,6 +438,16 @@ export async function setChargerStatus(
     });
   });
 
+  // Customers who booked this charger can no longer use it, so their bookings are cancelled
+  // and they are told. Offline has no end time, so every upcoming booking goes; a charger
+  // marked busy only loses the bookings that start before it is free again.
+  if (status === 'offline') {
+    await cancelBookingsOnCharger(chargerId, null, 'the owner took the charger offline');
+  } else if (status === 'walkin') {
+    const until = busyUntilDate ?? new Date(Date.now() + 5 * 60 * 1000);
+    await cancelBookingsOnCharger(chargerId, until, 'the charger is in use by the owner at that time');
+  }
+
   const result = toCharger(charger);
   const counts = await getStationStatusCounts(result.stationId);
   broadcast('charger:status', {
@@ -425,7 +482,7 @@ function toOwnerSession(session: OwnerSession) {
     chargerLabel: session.charger.label,
     connector: session.charger.connector,
     powerKw: toNumber(session.charger.powerKw) as number,
-    ratePerKwh: toNumber(session.charger.ratePerKwh) as number,
+    ratePerKwh: toNumber(session.ratePerKwh ?? session.charger.ratePerKwh) as number,
     customerName,
     hasReview: session.review !== null,
   };

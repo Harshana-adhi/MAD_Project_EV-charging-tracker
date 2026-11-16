@@ -14,6 +14,8 @@ import { hashPassword } from '../../core/password';
 import { credit } from '../../core/credit.service';
 import { broadcastStationChanged, takeStationOffMap } from '../stations/stations.service';
 import { notify } from '../../core/notify.service';
+import { endSession } from '../sessions/sessions.service';
+import { broadcastBookingChanged } from '../bookings/slots';
 import type { ReviewInput } from './admin.schema';
 
 function formatLkr(amount: number): string {
@@ -34,13 +36,14 @@ function toPublicUser(user: User) {
 }
 
 export async function getCounts() {
-  const [pendingStations, pendingTopups, pendingWithdrawals, users] = await Promise.all([
+  const [pendingStations, pendingTopups, pendingWithdrawals, pendingDisputes, users] = await Promise.all([
     prisma.station.count({ where: { status: 'pending' } }),
     prisma.topupRequest.count({ where: { status: 'pending', method: 'slip' } }),
     prisma.withdrawal.count({ where: { status: 'pending' } }),
+    prisma.session.count({ where: { status: 'disputed' } }),
     prisma.user.count(),
   ]);
-  return { pendingStations, pendingTopups, pendingWithdrawals, users };
+  return { pendingStations, pendingTopups, pendingWithdrawals, pendingDisputes, users };
 }
 
 function toStation(station: Station) {
@@ -78,6 +81,12 @@ export async function reviewStation(stationId: string, input: ReviewInput) {
   const station = await prisma.station.findUnique({ where: { id: stationId } });
   if (!station) throw new AppError('NOT_FOUND', 404);
 
+  // A station with nothing to charge on would show up on the map empty.
+  if (input.approve) {
+    const chargers = await prisma.charger.count({ where: { stationId } });
+    if (chargers === 0) throw new AppError('STATION_HAS_NO_CHARGERS', 409);
+  }
+
   // The status filter makes sure a station that was just reviewed cannot be reviewed again.
   const result = await prisma.station.updateMany({
     where: { id: stationId, status: 'pending' },
@@ -110,6 +119,12 @@ export async function setStationHidden(stationId: string, hidden: boolean) {
   if (!hidden && station.status !== 'hidden') throw new AppError('ALREADY_PROCESSED', 409);
 
   if (hidden) {
+    // Same rule as an owner deleting a station: not while someone is charging there.
+    const activeSession = await prisma.session.findFirst({
+      where: { stationId, status: 'active' },
+      select: { id: true },
+    });
+    if (activeSession) throw new AppError('STATION_HAS_ACTIVE_SESSION', 409);
     await takeStationOffMap(stationId, 'hidden');
   } else {
     await prisma.station.update({ where: { id: stationId }, data: { status: 'approved' } });
@@ -282,7 +297,100 @@ export async function setUserBlocked(admin: AuthUser, userId: string, blocked: b
   if (target.deletedAt) throw new AppError('ACCOUNT_DELETED', 409);
 
   const user = await prisma.user.update({ where: { id: userId }, data: { isBlocked: blocked } });
+  if (blocked) await stopUserActivity(user);
+
+  await notify({
+    userId,
+    title: blocked ? 'Account terminated' : 'Account reactivated',
+    body: blocked
+      ? 'Your GreenCharge account was terminated by an admin. You can no longer use the app.'
+      : 'Your GreenCharge account is active again. You can log in and use the app.',
+    type: 'account_status',
+    email: true,
+  });
   return toPublicUser(user);
+}
+
+// Sessions an owner has disputed and no admin has looked at yet.
+export async function listDisputes() {
+  const sessions = await prisma.session.findMany({
+    where: { status: 'disputed' },
+    include: {
+      charger: { select: { label: true } },
+      customer: { select: { fullName: true } },
+      station: { select: { name: true, owner: { select: { fullName: true } } } },
+    },
+    orderBy: { endedAt: 'desc' },
+  });
+  return sessions.map((session) => ({
+    id: session.id,
+    stationName: session.station.name,
+    chargerLabel: session.charger.label,
+    ownerName: session.station.owner.fullName,
+    customerName: session.customer.fullName,
+    reason: session.disputeReason,
+    kwh: session.kwh?.toNumber() ?? null,
+    cost: session.cost?.toNumber() ?? null,
+    endedAt: session.endedAt,
+  }));
+}
+
+// Closing a dispute puts the session back to completed and tells both sides. No money moves:
+// the admin settles anything owed with the owner and customer outside the app.
+export async function resolveDispute(sessionId: string) {
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: { station: { select: { name: true, ownerId: true } } },
+  });
+  if (!session) throw new AppError('NOT_FOUND', 404);
+
+  const result = await prisma.session.updateMany({
+    where: { id: sessionId, status: 'disputed' },
+    data: { status: 'completed' },
+  });
+  if (result.count === 0) throw new AppError('ALREADY_PROCESSED', 409);
+
+  for (const userId of [session.station.ownerId, session.customerId]) {
+    await notify({
+      userId,
+      title: 'Dispute closed',
+      body: `An admin reviewed the disputed session at ${session.station.name} and closed the dispute.`,
+      type: 'session_disputed',
+      refId: sessionId,
+      email: true,
+    });
+  }
+  return { id: sessionId };
+}
+
+// A terminated user can't use the app, so nothing of theirs is left running: their own
+// charging session ends, their bookings are cancelled and (for an owner) their stations are
+// hidden. An admin reinstates the stations from the Hidden list after reactivating the owner.
+async function stopUserActivity(user: User) {
+  const activeSessions = await prisma.session.findMany({
+    where: { customerId: user.id, status: 'active' },
+    select: { id: true },
+  });
+  for (const session of activeSessions) {
+    await endSession(session.id).catch((err) => console.error('Could not end session of terminated user', session.id, err));
+  }
+
+  const bookings = await prisma.booking.findMany({ where: { customerId: user.id, status: 'booked' } });
+  await prisma.booking.updateMany({
+    where: { customerId: user.id, status: 'booked' },
+    data: { status: 'cancelled', cancelledAt: new Date() },
+  });
+  for (const booking of bookings) {
+    broadcastBookingChanged(booking.chargerId, booking.stationId, booking.startAt);
+  }
+
+  if (user.role === 'owner') {
+    const stations = await prisma.station.findMany({
+      where: { ownerId: user.id, status: 'approved' },
+      select: { id: true },
+    });
+    for (const station of stations) await takeStationOffMap(station.id, 'hidden');
+  }
 }
 
 export async function resetUserPassword(userId: string, newPassword: string) {

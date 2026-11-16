@@ -204,6 +204,8 @@ model Session {
   stationId     String        @map("station_id")
   station       Station       @relation(fields: [stationId], references: [id])
   spendingLimit Decimal       @map("spending_limit") @db.Decimal(12, 2)
+  // The charger's rate when the session started. Billing uses this, not the charger's rate today.
+  ratePerKwh    Decimal?      @map("rate_per_kwh") @db.Decimal(10, 2)
   kwh           Decimal?      @db.Decimal(8, 2)
   cost          Decimal?      @db.Decimal(12, 2)
   commission    Decimal?      @db.Decimal(12, 2)

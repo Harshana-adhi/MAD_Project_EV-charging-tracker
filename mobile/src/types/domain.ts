@@ -214,7 +214,21 @@ export interface AdminCounts {
   pendingStations: number;
   pendingTopups: number;
   pendingWithdrawals: number;
+  pendingDisputes: number;
   users: number;
+}
+
+// A session an owner disputed, waiting for an admin to look at it.
+export interface AdminDispute {
+  id: string;
+  stationName: string;
+  chargerLabel: string;
+  ownerName: string;
+  customerName: string;
+  reason: string | null;
+  kwh: number | null;
+  cost: number | null;
+  endedAt: string | null;
 }
 
 export interface AdminStation extends Station {

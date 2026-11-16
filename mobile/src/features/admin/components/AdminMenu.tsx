@@ -28,6 +28,13 @@ export function useAdminShortcuts(): SideMenuItem[] {
       href: { pathname: '/(admin)/payments', params: { tab: 'withdrawals' } },
       count: counts?.pendingWithdrawals,
     },
+    {
+      label: 'Disputes',
+      hint: 'Sessions an owner has disputed',
+      icon: 'alert-circle-outline',
+      href: '/(admin)/disputes',
+      count: counts?.pendingDisputes,
+    },
     { label: 'Users', hint: 'Find, block or reset users', icon: 'account-group-outline', href: '/(admin)/users' },
     { label: 'Reports', hint: 'Income and monthly reports', icon: 'chart-bar', href: '/(admin)/reports' },
     { label: 'Map', hint: 'Every station on the map', icon: 'map-marker-radius', href: '/(admin)/map' },

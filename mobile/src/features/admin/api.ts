@@ -1,6 +1,7 @@
 import { api as http } from '@/lib/api';
 import type {
   AdminCounts,
+  AdminDispute,
   AdminStation,
   AdminTopup,
   AdminWithdrawal,
@@ -49,6 +50,14 @@ export function processWithdrawal(id: string, approve: boolean): Promise<Withdra
   return http.post(`/admin/withdrawals/${id}/process`, {
     approve,
   }) as unknown as Promise<Withdrawal>;
+}
+
+export function listDisputes(): Promise<AdminDispute[]> {
+  return http.get('/admin/disputes') as unknown as Promise<AdminDispute[]>;
+}
+
+export function resolveDispute(id: string): Promise<{ id: string }> {
+  return http.post(`/admin/disputes/${id}/resolve`) as unknown as Promise<{ id: string }>;
 }
 
 export function listUsers(search?: string): Promise<User[]> {

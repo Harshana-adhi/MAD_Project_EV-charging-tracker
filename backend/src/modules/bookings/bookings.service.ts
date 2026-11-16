@@ -133,6 +133,15 @@ export async function createBooking(
     });
     if (overlapping) throw new AppError('SLOT_TAKEN', 409);
 
+    // Someone charging there right now must be able to finish before this slot starts. The
+    // meter runs 60 times faster than real time, as in sessions.service.ts.
+    const charging = await tx.session.findFirst({ where: { chargerId: input.chargerId, status: 'active' } });
+    if (charging) {
+      const rate = (charging.ratePerKwh ?? charger.ratePerKwh).toNumber();
+      const neededMs = ((charging.spendingLimit.toNumber() / rate) * 3_600_000) / (charger.powerKw.toNumber() * 60);
+      if (charging.startedAt.getTime() + neededMs > startAt.getTime()) throw new AppError('SLOT_TAKEN', 409);
+    }
+
     // Booking is free for now – no credit hold. A booking fee/deposit could later be taken
     // here with credit.hold and released on cancel or forfeited on no-show/expiry.
     const booking = await tx.booking.create({
@@ -200,6 +209,39 @@ export async function cancelBooking(id: string, customerId: string) {
     refId: booking.id,
   });
   return plainBooking(booking);
+}
+
+// Used when an owner takes a charger out of use: the bookings it can no longer serve are
+// cancelled and each customer is told. With no "until" every upcoming booking goes; with one,
+// only the bookings that start before it.
+export async function cancelBookingsOnCharger(chargerId: string, until: Date | null, reason: string) {
+  const bookings = await prisma.booking.findMany({
+    where: {
+      chargerId,
+      status: 'booked',
+      endAt: { gt: new Date() },
+      ...(until ? { startAt: { lt: until } } : {}),
+    },
+    include: { station: { select: { name: true } }, charger: { select: { label: true } } },
+  });
+
+  for (const booking of bookings) {
+    const { count } = await prisma.booking.updateMany({
+      where: { id: booking.id, status: 'booked' },
+      data: { status: 'cancelled', cancelledAt: new Date() },
+    });
+    if (count === 0) continue;
+    broadcastBookingChanged(booking.chargerId, booking.stationId, booking.startAt);
+    await notify({
+      userId: booking.customerId,
+      title: 'Booking cancelled',
+      body: `Your booking at ${booking.station.name} – ${booking.charger.label} was cancelled because ${reason}.`,
+      type: 'booking_cancelled',
+      refId: booking.id,
+      email: true,
+    });
+  }
+  return bookings.length;
 }
 
 const HISTORY_DAYS = 30;

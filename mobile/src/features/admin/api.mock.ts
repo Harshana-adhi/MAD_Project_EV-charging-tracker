@@ -1,6 +1,7 @@
 import { mockStationSummary, mockUser, mockWithdrawal } from '@/mocks/fixtures';
 import type {
   AdminCounts,
+  AdminDispute,
   AdminStation,
   AdminTopup,
   AdminWithdrawal,
@@ -118,6 +119,7 @@ export async function getAdminCounts(): Promise<AdminCounts> {
     pendingStations: stations.filter((station) => station.status === 'pending').length,
     pendingTopups: topups.filter((topup) => topup.status === 'pending').length,
     pendingWithdrawals: withdrawals.filter((withdrawal) => withdrawal.status === 'pending').length,
+    pendingDisputes: 0,
     users: users.length,
   };
 }
@@ -176,6 +178,14 @@ export async function processWithdrawal(id: string, approve: boolean): Promise<W
   const updated: AdminWithdrawal = { ...withdrawal, status: approve ? 'paid' : 'rejected' };
   withdrawals = withdrawals.map((item) => (item.id === id ? updated : item));
   return updated;
+}
+
+export async function listDisputes(): Promise<AdminDispute[]> {
+  return [];
+}
+
+export async function resolveDispute(id: string): Promise<{ id: string }> {
+  return { id };
 }
 
 export async function listUsers(search?: string): Promise<User[]> {

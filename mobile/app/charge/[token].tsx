@@ -13,7 +13,7 @@ import { useChargerByQr, useStartSession } from '@/features/session/hooks';
 import { useAuth } from '@/features/auth';
 import { useVehicles } from '@/features/profile/hooks';
 import { vehicleForConnector } from '@/features/profile/vehicleFit';
-import { formatCredits } from '@/lib/format';
+import { formatClock, formatCredits } from '@/lib/format';
 import { errorMessage } from '@/lib/errors';
 import { useAppTheme, spacing } from '@/lib/theme';
 
@@ -83,6 +83,16 @@ export default function StartSessionScreen() {
   const savedVehicles = vehicles.data ?? [];
   // Only warn when the customer has saved vehicles and none of them takes this plug.
   const plugMismatch = savedVehicles.length > 0 && !vehicleForConnector(savedVehicles, point.connector);
+  // Why charging can't start here right now, shown above the disabled button.
+  const blockedReason = point.reservedUntil
+    ? `This charger is reserved for another customer's booking until ${formatClock(point.reservedUntil)}.`
+    : point.status === 'offline'
+      ? 'This charger is offline right now.'
+      : point.status === 'busy'
+        ? 'Someone is charging on this charger right now.'
+        : point.status === 'walkin'
+          ? 'The owner has marked this charger as busy right now.'
+          : null;
 
   return (
     <Screen title="Start charging" back scroll>
@@ -153,11 +163,16 @@ export default function StartSessionScreen() {
             } />
           </View>
         ) : null}
+        {blockedReason ? (
+          <Text variant="bodyMedium" style={{ color: theme.colors.error }}>
+            {blockedReason}
+          </Text>
+        ) : null}
         <AppButton
           label="Start charging"
           onPress={handleSubmit(submit)}
           loading={start.isPending}
-          disabled={start.isPending || !validLimit || shortfall > 0 || point.status !== 'available' || plugMismatch}
+          disabled={start.isPending || !validLimit || shortfall > 0 || !!blockedReason || plugMismatch}
         />
       </View>
       <Portal>

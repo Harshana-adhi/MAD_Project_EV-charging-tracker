@@ -177,7 +177,7 @@ export default function AdminUsersScreen() {
         message={
           userToBlock?.isBlocked
             ? `${userToBlock.fullName} will be able to log in and use the app again.`
-            : `${userToBlock?.fullName ?? 'This user'} will be logged out and unable to use the app. This does not delete their account or data.`
+            : `${userToBlock?.fullName ?? 'This user'} will be logged out and unable to use the app. Their bookings are cancelled and their stations are hidden from the map. This does not delete their account or data.`
         }
         confirmLabel={userToBlock?.isBlocked ? 'Reactivate' : 'Terminate'}
         danger={userToBlock ? !userToBlock.isBlocked : false}

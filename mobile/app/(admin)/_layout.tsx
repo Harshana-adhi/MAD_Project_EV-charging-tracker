@@ -92,6 +92,7 @@ export default function AdminTabsLayout() {
       <Tabs.Screen name="stations" options={{ title: 'Stations', ...dashboardPageOptions }} />
       <Tabs.Screen name="payments" options={{ title: 'Payments', ...dashboardPageOptions }} />
       <Tabs.Screen name="users" options={{ title: 'Users', ...dashboardPageOptions }} />
+      <Tabs.Screen name="disputes" options={{ title: 'Disputes', ...dashboardPageOptions }} />
     </Tabs>
   );
 }
