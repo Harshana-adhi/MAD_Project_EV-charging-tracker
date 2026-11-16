@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Checkbox, Chip, Dialog, HelperText, Portal, Text } from 'react-native-paper';
+import { Button, Checkbox, Chip, Dialog, HelperText, Portal, Text, TextInput } from 'react-native-paper';
 import { AppButton, AppTextInput, StatusBadge } from '@/components';
 import { errorMessage } from '@/lib/errors';
 import { useAppTheme, spacing } from '@/lib/theme';
@@ -359,9 +359,19 @@ export function StationForm({ station, saving, submitError, onSubmit }: StationF
           <AppTextInput
             label="Address"
             value={field.value}
-            onChangeText={field.onChange}
+            // An address is one line of data: the Enter key finishes typing instead of adding a line.
+            onChangeText={(text) => field.onChange(text.replace(/\s*\n+\s*/g, ', '))}
             disabled={isBusy}
             error={errors.address?.message}
+            // Grows to show the whole address instead of clipping it.
+            multiline
+            scrollEnabled={false}
+            submitBehavior="blurAndSubmit"
+            returnKeyType="done"
+            left={<TextInput.Icon icon="map-marker-outline" />}
+            contentStyle={styles.addressText}
+            // Phones grow the box with the text; the web preview needs a row count instead.
+            numberOfLines={Platform.OS === 'web' ? 3 : undefined}
           />
         )}
       />
@@ -471,6 +481,7 @@ export function StationForm({ station, saving, submitError, onSubmit }: StationF
 }
 
 const styles = StyleSheet.create({
+  addressText: { paddingTop: 14, paddingBottom: 14, lineHeight: 22 },
   form: { gap: spacing.lg },
   section: { gap: spacing.sm },
   timeField: { gap: spacing.xs },
