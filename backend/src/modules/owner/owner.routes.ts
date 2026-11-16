@@ -84,6 +84,11 @@ router.get(
   validate({ query: earningsQuerySchema }),
   asyncHandler(controller.getEarnings),
 );
+router.get(
+  '/earnings/stations',
+  validate({ query: earningsQuerySchema }),
+  asyncHandler(controller.getStationEarnings),
+);
 router.get('/withdrawals', asyncHandler(controller.listMyWithdrawals));
 router.post(
   '/withdrawals',

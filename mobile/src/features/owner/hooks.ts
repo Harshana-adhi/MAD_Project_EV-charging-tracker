@@ -154,6 +154,20 @@ export function useOwnerEarnings(from: string, to: string) {
   });
 }
 
+export function useStationEarnings(from: string, to: string) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    return onEvent('session:updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['owner', 'station-earnings'] });
+    });
+  }, [queryClient]);
+  return useQuery({
+    queryKey: ['owner', 'station-earnings', from, to],
+    queryFn: () => api.getStationEarnings(from, to),
+    enabled: Boolean(from && to),
+  });
+}
+
 export function useOwnerWithdrawals() {
   const queryClient = useQueryClient();
   useEffect(() => {

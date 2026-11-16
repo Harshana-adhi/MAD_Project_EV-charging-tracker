@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { SegmentedButtons, Text } from 'react-native-paper';
+import { Divider, List, SegmentedButtons, Text } from 'react-native-paper';
 import { Card, EmptyState, ErrorView, LoadingView, Screen } from '@/components';
-import { EarningsChart, useOwnerEarnings } from '@/features/owner';
-import { formatCredits } from '@/lib/format';
+import { EarningsChart, useOwnerEarnings, useStationEarnings } from '@/features/owner';
+import { formatClock, formatCredits } from '@/lib/format';
 import { spacing, useAppTheme } from '@/lib/theme';
 
 function colomboToday(): string {
@@ -23,10 +23,12 @@ function daysBefore(day: string, count: number): string {
 
 export default function EarningsScreen() {
   const theme = useAppTheme();
-  const [range, setRange] = useState<'7' | '30'>('7');
+  const [range, setRange] = useState<'1' | '7' | '30'>('7');
+  const [openStationId, setOpenStationId] = useState<string | null>(null);
   const today = colomboToday();
   const from = daysBefore(today, Number(range) - 1);
   const earnings = useOwnerEarnings(from, today);
+  const stationEarnings = useStationEarnings(from, today);
   const totals = useMemo(
     () =>
       (earnings.data ?? []).reduce(
@@ -41,15 +43,23 @@ export default function EarningsScreen() {
   );
 
   return (
-    <Screen title="Earnings" scroll refreshing={earnings.isRefetching} onRefresh={() => void earnings.refetch()}>
+    <Screen
+      scroll
+      refreshing={earnings.isRefetching || stationEarnings.isRefetching}
+      onRefresh={() => {
+        void earnings.refetch();
+        void stationEarnings.refetch();
+      }}
+    >
       <View style={styles.content}>
         <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
           Owner earnings come from completed charging sessions and the shared credit ledger.
         </Text>
         <SegmentedButtons
           value={range}
-          onValueChange={(value) => setRange(value as '7' | '30')}
+          onValueChange={(value) => setRange(value as '1' | '7' | '30')}
           buttons={[
+            { value: '1', label: 'Today' },
             { value: '7', label: '7 days' },
             { value: '30', label: '30 days' },
           ]}
@@ -80,6 +90,48 @@ export default function EarningsScreen() {
                 <Text variant="headlineSmall" style={{ fontVariant: ['tabular-nums'] }}>{totals.sessions}</Text>
               </Card>
             </View>
+            <Card title="Earnings by station">
+              {stationEarnings.isLoading ? <LoadingView message="Loading stations…" /> : null}
+              {stationEarnings.data?.length === 0 ? (
+                <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>No stations yet.</Text>
+              ) : null}
+              {stationEarnings.data?.map((station) => (
+                <View key={station.stationId}>
+                  <List.Accordion
+                    title={station.stationName}
+                    description={`${station.sessions} ${station.sessions === 1 ? 'session' : 'sessions'} · ${formatCredits(station.earnings)} earned · ${formatCredits(station.commission)} commission`}
+                    expanded={openStationId === station.stationId}
+                    onPress={() => setOpenStationId(openStationId === station.stationId ? null : station.stationId)}
+                    titleNumberOfLines={2}
+                    descriptionNumberOfLines={3}
+                  >
+                    {station.items.length === 0 ? (
+                      <Text variant="bodySmall" style={[styles.emptyItems, { color: theme.colors.onSurfaceVariant }]}>
+                        No sessions in this period.
+                      </Text>
+                    ) : (
+                      station.items.map((item) => (
+                        <View key={item.id} style={[styles.row, { borderBottomColor: theme.colors.outlineVariant }]}>
+                          <View style={styles.dayInfo}>
+                            <Text variant="titleSmall">{item.chargerLabel}</Text>
+                            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                              {new Date(item.endedAt).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', timeZone: 'Asia/Colombo' })}
+                              {' · '}
+                              {formatClock(item.endedAt)}
+                            </Text>
+                          </View>
+                          <View style={styles.dayValues}>
+                            <Text variant="labelLarge" style={{ color: theme.colors.primary }}>{formatCredits(item.earning)}</Text>
+                            <Text variant="bodySmall" style={{ color: theme.colors.secondary }}>Commission {formatCredits(item.commission)}</Text>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </List.Accordion>
+                  <Divider />
+                </View>
+              ))}
+            </Card>
             <Card title="Daily earnings and commission">
               <ScrollView horizontal showsHorizontalScrollIndicator>
                 <EarningsChart data={earnings.data} />
@@ -114,5 +166,6 @@ const styles = StyleSheet.create({
   breakdown: { gap: spacing.xs },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   dayInfo: { gap: spacing.xs },
+  emptyItems: { padding: spacing.md },
   dayValues: { alignItems: 'flex-end', gap: spacing.xs },
 });

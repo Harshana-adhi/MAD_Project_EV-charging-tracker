@@ -99,6 +99,12 @@ export async function getEarnings(req: Request, res: Response) {
   res.json({ data: earnings });
 }
 
+export async function getStationEarnings(req: Request, res: Response) {
+  const query = req.query as unknown as { from?: Date; to?: Date };
+  const stations = await ownerService.getStationEarnings(req.user!.id, query.from, query.to);
+  res.json({ data: stations });
+}
+
 export async function listMyWithdrawals(req: Request, res: Response) {
   const withdrawals = await ownerService.listMyWithdrawals(req.user!.id);
   res.json({ data: withdrawals });

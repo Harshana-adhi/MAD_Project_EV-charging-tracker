@@ -4,6 +4,7 @@ import type {
   Charger,
   ChargerInput,
   EarningsDay,
+  StationEarnings,
   SessionWithNames,
   StationDetail,
   StationInput,
@@ -288,6 +289,19 @@ export async function disputeSession(id: string, reason: string): Promise<Sessio
   const updated = { ...session, status: 'disputed' as const, disputeReason: trimmedReason };
   data.sessions = data.sessions.map((item) => (item.id === id ? updated : item));
   return updated;
+}
+
+export async function getStationEarnings(): Promise<StationEarnings[]> {
+  return getOwnerMockData().stations
+    .filter((station) => station.status === 'approved')
+    .map((station) => ({
+      stationId: station.id,
+      stationName: station.name,
+      sessions: 0,
+      earnings: 0,
+      commission: 0,
+      items: [],
+    }));
 }
 
 export async function getOwnerEarnings(from: string, to: string): Promise<EarningsDay[]> {
