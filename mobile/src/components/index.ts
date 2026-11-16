@@ -1,4 +1,5 @@
 export { Screen } from './Screen';
+export { AppRefreshControl } from './AppRefreshControl';
 export { AppButton } from './AppButton';
 export { AppTextInput } from './AppTextInput';
 export { Card } from './Card';
