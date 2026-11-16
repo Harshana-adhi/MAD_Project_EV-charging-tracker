@@ -7,6 +7,8 @@ import { Chip, Dialog, Portal, Text, Button } from 'react-native-paper';
 import { z } from 'zod';
 import { AppButton, AppTextInput, Card, ConnectorChip, ErrorView, LoadingView, Screen, StatusBadge } from '@/components';
 import { useChargerByQr, useStartSession } from '@/features/session/hooks';
+import { useVehicles } from '@/features/profile/hooks';
+import { vehicleForConnector } from '@/features/profile/vehicleFit';
 import { formatCredits } from '@/lib/format';
 import { errorMessage } from '@/lib/errors';
 import { useAppTheme, spacing } from '@/lib/theme';
@@ -21,6 +23,7 @@ export default function StartSessionScreen() {
   const theme = useAppTheme();
   const charger = useChargerByQr(token ?? '');
   const start = useStartSession();
+  const vehicles = useVehicles();
   const [custom, setCustom] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const { control, setValue, watch, handleSubmit, formState: { errors } } = useForm<LimitForm>({
@@ -51,6 +54,9 @@ export default function StartSessionScreen() {
   const shortfall = validLimit ? Math.ceil(Math.max(0, spendingLimit - available) / 100) * 100 : 0;
   const estimatedKwh = validLimit && point.ratePerKwh > 0 ? spendingLimit / point.ratePerKwh : 0;
   const estimatedHours = point.powerKw > 0 ? estimatedKwh / point.powerKw : 0;
+  const savedVehicles = vehicles.data ?? [];
+  // Only warn when the customer has saved vehicles and none of them takes this plug.
+  const plugMismatch = savedVehicles.length > 0 && !vehicleForConnector(savedVehicles, point.connector);
 
   return (
     <Screen title="Start charging" back scroll>
@@ -60,6 +66,18 @@ export default function StartSessionScreen() {
           <ConnectorChip connector={point.connector} />
           <Text variant="bodyMedium">{point.powerKw} kW · {formatCredits(point.ratePerKwh)} / kWh</Text>
         </Card>
+        {plugMismatch ? (
+          <View style={{ gap: spacing.xs, padding: spacing.md, borderRadius: 12, backgroundColor: theme.colors.errorContainer }}>
+            <Text variant="titleSmall" style={{ color: theme.colors.onErrorContainer }}>
+              This plug may not fit your car
+            </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onErrorContainer }}>
+              {point.label} is {point.connector}, but your saved vehicles use{' '}
+              {[...new Set(savedVehicles.map((vehicle) => vehicle.connector))].join(' or ')}. Check the plug, or go
+              back and scan another charger at this station.
+            </Text>
+          </View>
+        ) : null}
         <View style={{ gap: spacing.sm }}>
           <Text variant="titleMedium">Available balance</Text>
           <Text variant="headlineSmall" style={{ color: theme.colors.primary }}>{formatCredits(available)}</Text>

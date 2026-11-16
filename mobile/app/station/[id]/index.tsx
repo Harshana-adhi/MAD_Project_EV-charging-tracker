@@ -5,6 +5,8 @@ import { Chip, Menu, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth';
 import { useStation } from '@/features/map/hooks';
+import { useVehicles } from '@/features/profile/hooks';
+import { vehicleForConnector } from '@/features/profile/vehicleFit';
 import { FavouriteButton } from '@/features/reviews/FavouriteButton';
 import { useFavourites, useReviews } from '@/features/reviews/hooks';
 import { ReviewCard } from '@/features/reviews/ReviewCard';
@@ -28,6 +30,10 @@ export default function StationDetailsScreen() {
   const { data: station, isLoading, isError, error, refetch } = useStation(id);
   const favourites = useFavourites();
   const reviews = useReviews(id);
+  const isCustomer = user?.role === 'customer';
+  const vehicles = useVehicles(isCustomer);
+  const hasVehicles = (vehicles.data?.length ?? 0) > 0;
+  const reviewCount = reviews.data?.length ?? 0;
 
   if (isLoading) return <LoadingView />;
   if (isError || !station) return <ErrorView error={error} onRetry={refetch} />;
@@ -121,18 +127,43 @@ export default function StationDetailsScreen() {
       {station.chargers.length === 0 ? (
         <EmptyState icon="ev-station" title="No chargers yet" message="This station has no chargers listed." />
       ) : (
-        station.chargers.map((charger) => (
-          <View key={charger.id} style={styles.chargerRow}>
-            <View style={styles.chargerInfo}>
-              <Text variant="bodyLarge">{charger.label}</Text>
-              <ConnectorChip connector={charger.connector} />
-              <Text variant="bodySmall">{charger.powerKw} kW</Text>
-              <Text variant="bodySmall">LKR {charger.ratePerKwh} / kWh</Text>
+        station.chargers.map((charger) => {
+          const fits = vehicleForConnector(vehicles.data, charger.connector);
+          return (
+            <View key={charger.id} style={styles.chargerRow}>
+              <View style={styles.chargerMain}>
+                <View style={styles.chargerInfo}>
+                  <Text variant="bodyLarge">{charger.label}</Text>
+                  <ConnectorChip connector={charger.connector} />
+                  <Text variant="bodySmall">{charger.powerKw} kW</Text>
+                  <Text variant="bodySmall">LKR {charger.ratePerKwh} / kWh</Text>
+                </View>
+                {hasVehicles ? (
+                  <View style={styles.fitRow}>
+                    <MaterialCommunityIcons
+                      name={fits ? 'check-circle-outline' : 'close-circle-outline'}
+                      size={14}
+                      color={fits ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    />
+                    <Text
+                      variant="bodySmall"
+                      style={{ color: fits ? theme.colors.primary : theme.colors.onSurfaceVariant }}
+                    >
+                      {fits ? `Fits your ${fits.makeModel}` : "Doesn't fit your saved vehicles"}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <StatusBadge status={charger.status} />
             </View>
-            <StatusBadge status={charger.status} />
-          </View>
-        ))
+          );
+        })
       )}
+      {station.chargers.length > 1 ? (
+        <Text variant="bodySmall" style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
+          Each charger has its own QR code. Scan the one on the charger you plug into.
+        </Text>
+      ) : null}
 
       <View style={styles.actions}>
         <Menu
@@ -153,18 +184,32 @@ export default function StationDetailsScreen() {
         <AppButton label="Charge here" onPress={chargeHere} />
       </View>
 
-      <Text variant="titleMedium" style={styles.sectionTitle}>
-        Reviews
-      </Text>
+      <View style={[styles.reviewsHeader, styles.sectionTitle]}>
+        <Text variant="titleMedium">
+          Reviews{reviewCount > 0 ? ` (${reviewCount})` : ''}
+        </Text>
+        {reviewCount > 0 ? (
+          <AppButton
+            label="See all"
+            mode="text"
+            onPress={() => router.push({ pathname: '/station/[id]/reviews', params: { id: station.id } })}
+          />
+        ) : null}
+      </View>
       {reviews.isPending && <LoadingView message="Loading reviews" />}
       {reviews.isError && <ErrorView error={reviews.error} onRetry={() => void reviews.refetch()} />}
-      {reviews.data?.length === 0 && <Text variant="bodyMedium">No reviews yet</Text>}
-      {reviews.data?.slice(0, 3).map((review) => <ReviewCard key={review.id} review={review} />)}
-      <AppButton
-        label="See all reviews"
-        mode="outlined"
-        onPress={() => router.push({ pathname: '/station/[id]/reviews', params: { id: station.id } })}
-      />
+      {reviewCount === 0 && reviews.isSuccess ? (
+        <View style={[styles.reviewsEmpty, { borderColor: theme.colors.outlineVariant }]}>
+          <MaterialCommunityIcons name="star-outline" size={28} color={theme.colors.onSurfaceVariant} />
+          <Text variant="titleSmall">No reviews yet</Text>
+          <Text variant="bodySmall" style={[styles.centerText, { color: theme.colors.onSurfaceVariant }]}>
+            Customers can rate this station after a charging session here.
+          </Text>
+        </View>
+      ) : null}
+      <View style={styles.reviewList}>
+        {reviews.data?.slice(0, 3).map((review) => <ReviewCard key={review.id} review={review} />)}
+      </View>
     </Screen>
   );
 }
@@ -190,6 +235,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
   },
-  chargerInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap', flex: 1 },
+  chargerMain: { flex: 1, gap: spacing.xs },
+  chargerInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+  fitRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  hint: { marginTop: spacing.xs },
+  reviewsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reviewsEmpty: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderRadius: 12,
+    borderStyle: 'dashed',
+  },
+  centerText: { textAlign: 'center' },
+  reviewList: { gap: spacing.sm, marginBottom: spacing.lg },
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
 });
