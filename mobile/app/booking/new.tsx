@@ -98,6 +98,9 @@ export default function NewBookingScreen() {
   const target: ChargeTarget | null =
     amountText && Number.isFinite(amountValue) && amountValue > 0 ? { type: targetType, value: amountValue } : null;
   const plan = target && selectedCharger ? planCharge(target, selectedCharger.powerKw, selectedCharger.ratePerKwh) : null;
+  // Until the customer says how much to charge, the booking's length isn't known, so no end time is
+  // shown. Checks still use the shortest slot (30 min) so a clearly taken time is caught early.
+  const lengthKnown = !!plan && !plan.problem;
   const slotMinutes = plan?.slotMinutes ?? 30;
 
   const slotStarts = useMemo(() => {
@@ -145,7 +148,9 @@ export default function NewBookingScreen() {
     if (!slotStarts.some((slot) => slot.getTime() === startAt.getTime())) {
       return {
         ...none,
-        problem: `The station is open ${station.data?.openingHours}. A ${formatMinutes(slotMinutes)} booking must finish by closing time.`,
+        problem: lengthKnown
+          ? `The station is open ${station.data?.openingHours}. A ${formatMinutes(slotMinutes)} booking must finish by closing time.`
+          : `That time is outside the station's opening hours (${station.data?.openingHours}).`,
       };
     }
     if (isTaken(startAt)) {
@@ -207,7 +212,7 @@ export default function NewBookingScreen() {
   const someTimePassed = isToday && !!firstFree && firstFree.start > colomboInstant(day, openMinute);
   const timeText24 = (range: TimeRange) =>
     `${formatClock(range.start)} – ${range.end >= dayEnd ? 'midnight' : formatClock(range.end)}`;
-  const endAt = time.startAt ? new Date(time.startAt.getTime() + slotMinutes * 60 * 1000) : null;
+  const endAt = time.startAt && lengthKnown ? new Date(time.startAt.getTime() + slotMinutes * 60 * 1000) : null;
   const amountProblem = amountText && !target ? 'Type a number.' : plan?.problem ?? null;
   // Never confirm before the booked times are known, so a taken time can't slip through.
   const bookingsKnown = takenSlots.isSuccess;
@@ -228,7 +233,7 @@ export default function NewBookingScreen() {
           <View style={styles.flex}>
             <Text variant="titleSmall" numberOfLines={1}>
               {selectedCharger.label} · {dayLabel}
-              {time.startAt && endAt ? ` ${formatClock(time.startAt)} – ${formatClock(endAt)}` : ''}
+              {time.startAt ? ` ${formatClock(time.startAt)}${endAt ? ` – ${formatClock(endAt)}` : ''}` : ''}
             </Text>
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
               {target && plan && !plan.problem ? `${formatTargetValue(target)} · ≈ ${plan.kwh.toFixed(1)} kWh` : 'Fill in the steps above'}
@@ -536,7 +541,9 @@ export default function NewBookingScreen() {
             <HelperText type="info" style={styles.noPad}>
               {time.startAt && endAt
                 ? `\u2713 That time is free. ${portName} will be yours from ${formatClock(time.startAt)} to ${formatClock(endAt)}.`
-                : 'Tap to pick the hour, minutes and AM or PM.'}
+                : time.startAt
+                  ? `\u2713 ${formatClock(time.startAt)} is free. Enter how much to charge to see when your booking ends.`
+                  : 'Tap to pick the hour, minutes and AM or PM.'}
             </HelperText>
           )}
           <TimeWheelPicker
@@ -557,6 +564,9 @@ export default function NewBookingScreen() {
             describe={(minutes) => {
               const check = checkTime(minutesToText(minutes));
               if (check.startAt) {
+                if (!lengthKnown) {
+                  return { ok: true, text: `${formatClock(check.startAt)} is free. Enter how much to charge to see when it ends.` };
+                }
                 const until = new Date(check.startAt.getTime() + slotMinutes * 60 * 1000);
                 return { ok: true, text: `Free \u2013 ${portName} is yours ${formatClock(check.startAt)} to ${formatClock(until)}` };
               }
