@@ -105,6 +105,14 @@ export async function getStationEarnings(req: Request, res: Response) {
   res.json({ data: stations });
 }
 
+export async function listOwnerReviews(req: Request, res: Response) {
+  res.json({ data: await ownerService.listOwnerReviews(req.user!.id) });
+}
+
+export async function deleteOwnerReview(req: Request, res: Response) {
+  res.json({ data: await ownerService.deleteOwnerReview(req.params.id, req.user!) });
+}
+
 export async function listMyWithdrawals(req: Request, res: Response) {
   const withdrawals = await ownerService.listMyWithdrawals(req.user!.id);
   res.json({ data: withdrawals });

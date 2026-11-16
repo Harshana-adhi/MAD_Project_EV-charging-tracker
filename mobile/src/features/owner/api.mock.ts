@@ -4,6 +4,7 @@ import type {
   Charger,
   ChargerInput,
   EarningsDay,
+  OwnerReview,
   StationEarnings,
   SessionWithNames,
   StationDetail,
@@ -289,6 +290,18 @@ export async function disputeSession(id: string, reason: string): Promise<Sessio
   const updated = { ...session, status: 'disputed' as const, disputeReason: trimmedReason };
   data.sessions = data.sessions.map((item) => (item.id === id ? updated : item));
   return updated;
+}
+
+let mockReviews: OwnerReview[] = [];
+
+export async function listOwnerReviews(): Promise<OwnerReview[]> {
+  return mockReviews.map((review) => ({ ...review }));
+}
+
+export async function deleteOwnerReview(id: string): Promise<{ id: string }> {
+  if (!mockReviews.some((review) => review.id === id)) throw new Error('NOT_FOUND');
+  mockReviews = mockReviews.filter((review) => review.id !== id);
+  return { id };
 }
 
 export async function getStationEarnings(): Promise<StationEarnings[]> {
