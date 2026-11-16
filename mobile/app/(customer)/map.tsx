@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Badge, FAB, IconButton, Menu, Searchbar, Surface, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,6 +24,9 @@ export default function MapScreen() {
   const { show: showSnackbar } = useSnackbar();
   const mapRef = useRef<LeafletMapHandle>(null);
   const insets = useSafeAreaInsets();
+  const { routeToId } = useLocalSearchParams<{ routeToId?: string }>();
+  const [routeActive, setRouteActive] = useState(false);
+  const routedForRef = useRef<string | null>(null);
   const { mapStyle, setMapStyle } = useMapStyle();
   const [styleMenuVisible, setStyleMenuVisible] = useState(false);
   const tileStyle = mapStyle === 'auto' ? (theme.dark ? 'dark' : 'light') : mapStyle;
@@ -57,6 +60,28 @@ export default function MapScreen() {
 
   const { data: stations, isLoading, isError, error, refetch } = useStations(queryFilters);
   const selectedStation = stations?.find((s) => s.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!routeToId || !stations || routedForRef.current === routeToId) return;
+    if (!location && !locationDenied) return; // still waiting to know if location is available
+    const target = stations.find((s) => s.id === routeToId);
+    if (!target) return;
+    routedForRef.current = routeToId;
+    setViewMode('map');
+    setSelectedId(target.id);
+    if (location) {
+      mapRef.current?.showRoute(location.lat, location.lng, target.lat, target.lng);
+      setRouteActive(true);
+    } else {
+      mapRef.current?.centreOn(target.lat, target.lng, 15);
+      showSnackbar('Turn on location to see the route to this station');
+    }
+  }, [routeToId, location, locationDenied, stations, showSnackbar]);
+
+  function clearRoute() {
+    mapRef.current?.clearRoute();
+    setRouteActive(false);
+  }
 
   const activeFilterCount =
     (filters.connector ? 1 : 0) +
@@ -165,6 +190,13 @@ export default function MapScreen() {
             >
               <Text variant="bodySmall">Location off – showing Kandy</Text>
             </View>
+          ) : null}
+
+          {routeActive ? (
+            <Surface elevation={2} style={[styles.routeBanner, { top: insets.top + 72, backgroundColor: theme.colors.surface }]}>
+              <Text variant="bodySmall">Showing the route to this station</Text>
+              <IconButton icon="close" size={16} accessibilityLabel="Clear route" onPress={clearRoute} />
+            </Surface>
           ) : null}
 
           <View style={[styles.legend, { backgroundColor: theme.colors.surface }]}>
@@ -291,6 +323,16 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  routeBanner: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: spacing.md,
+    borderRadius: 24,
   },
   legend: {
     position: 'absolute',

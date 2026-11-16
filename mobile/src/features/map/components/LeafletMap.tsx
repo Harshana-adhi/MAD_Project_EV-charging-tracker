@@ -124,6 +124,34 @@ const HTML = `<!DOCTYPE html>
       map.setView([lat, lng], zoom || map.getZoom());
     };
 
+    let routeLine = null;
+
+    window.clearRoute = function () {
+      if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    };
+
+    function drawRoute(latlngs) {
+      window.clearRoute();
+      routeLine = L.polyline(latlngs, { color: '#2563EB', weight: 5, opacity: 0.85 }).addTo(map);
+      map.fitBounds(routeLine.getBounds(), { padding: [48, 48] });
+    }
+
+    // Walks/drives the real road network via a free, keyless public router. Falls back to a
+    // straight line (still useful, just not road-accurate) if that service is unreachable.
+    window.showRoute = function (fromLat, fromLng, toLat, toLng) {
+      const straight = [[fromLat, fromLng], [toLat, toLng]];
+      const url = 'https://router.project-osrm.org/route/v1/driving/' +
+        fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + '?overview=full&geometries=geojson';
+      fetch(url)
+        .then((res) => res.json())
+        .then((body) => {
+          const coords = body && body.routes && body.routes[0] && body.routes[0].geometry.coordinates;
+          if (!coords) { drawRoute(straight); return; }
+          drawRoute(coords.map((c) => [c[1], c[0]]));
+        })
+        .catch(() => drawRoute(straight));
+    };
+
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
   </script>
 </body>
@@ -131,6 +159,8 @@ const HTML = `<!DOCTYPE html>
 
 export type LeafletMapHandle = {
   centreOn: (lat: number, lng: number, zoom?: number) => void;
+  showRoute: (fromLat: number, fromLng: number, toLat: number, toLng: number) => void;
+  clearRoute: () => void;
 };
 
 export type TileStyle = 'light' | 'dark' | 'satellite';
@@ -157,6 +187,12 @@ export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(function
   useImperativeHandle(ref, () => ({
     centreOn: (lat, lng, zoom) => {
       webviewRef.current?.injectJavaScript(`window.centreOn(${lat}, ${lng}, ${zoom ?? 15}); true;`);
+    },
+    showRoute: (fromLat, fromLng, toLat, toLng) => {
+      webviewRef.current?.injectJavaScript(`window.showRoute(${fromLat}, ${fromLng}, ${toLat}, ${toLng}); true;`);
+    },
+    clearRoute: () => {
+      webviewRef.current?.injectJavaScript('window.clearRoute(); true;');
     },
   }));
 
