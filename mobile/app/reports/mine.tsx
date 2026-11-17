@@ -12,6 +12,26 @@ import { usePullToRefresh } from '@/features/admin/usePullToRefresh';
 import { errorMessage } from '@/lib/errors';
 import { spacing } from '@/lib/theme';
 
+// Prints the statement from a hidden frame in this page, so the browser's print dialog
+// ("Save as PDF") opens without a new window that a pop-up blocker could stop.
+function printHtmlOnWeb(html: string) {
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  Object.assign(frame.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0' });
+  frame.onload = () => {
+    const win = frame.contentWindow;
+    if (!win) return;
+    // Remove the frame once the dialog is closed (or after a minute, as a fallback).
+    const cleanUp = () => setTimeout(() => frame.remove(), 500);
+    win.addEventListener('afterprint', cleanUp);
+    setTimeout(cleanUp, 60_000);
+    win.focus();
+    win.print();
+  };
+  frame.srcdoc = html;
+  document.body.appendChild(frame);
+}
+
 export default function MyReportsScreen() {
   const snackbar = useSnackbar();
   const [month, setMonth] = useState<string | undefined>();
@@ -26,13 +46,7 @@ export default function MyReportsScreen() {
     try {
       const html = buildStatementHtml(statement, sessionsForMonth(sessions.data ?? [], statement.month));
       if (Platform.OS === 'web') {
-        // The browser's print dialog has "Save as PDF".
-        const win = window.open('', '_blank');
-        if (!win) throw new Error('Allow pop-ups to save the PDF.');
-        win.document.write(html);
-        win.document.close();
-        win.focus();
-        setTimeout(() => win.print(), 300);
+        printHtmlOnWeb(html);
       } else {
         const { uri } = await Print.printToFileAsync({ html });
         if (await Sharing.isAvailableAsync()) {
@@ -46,7 +60,7 @@ export default function MyReportsScreen() {
         }
       }
     } catch (err) {
-      snackbar.show(err instanceof Error && err.message.includes('pop-ups') ? err.message : errorMessage(err));
+      snackbar.show(errorMessage(err));
     } finally {
       setMaking(false);
     }
