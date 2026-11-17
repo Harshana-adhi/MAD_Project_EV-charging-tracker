@@ -2,5 +2,5 @@
 *.log
 .vscode/*
 !.vscode/extensions.json
-.claude/
+
 
