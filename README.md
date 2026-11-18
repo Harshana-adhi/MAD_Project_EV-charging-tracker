@@ -45,3 +45,5 @@ Seeded demo accounts (password `Password123`): `admin@evct.lk`, `owner@evct.lk`,
 - `fix/<name>` — bug fixes, from `develop`
 
 All changes merge into `develop` through a pull request.
+
+note:payments and all wallets are simulated
